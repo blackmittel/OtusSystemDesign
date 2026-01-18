@@ -1,1 +1,236 @@
 === Схемы данных
+
+==== Сущности
+
+===== Пользователи
+
+====== `User` (Пользователь)
+Основная сущность для всех участников системы.
+|===
+| Поле | Тип | Описание | Ограничения
+| `user_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `email` | String | Электронная почта | Unique, Not Null
+| `password_hash` | String | Хэш пароля | Not Null
+| `full_name` | String | Полное имя |
+| `role` | Enum | Роль пользователя | `buyer`/`seller`/`admin`/`moderator`/`analyst`
+| `registration_date` | DateTime | Дата регистрации | Default: now()
+| `status` | Enum | Статус аккаунта | `active`/`suspended`
+|===
+
+====== `SellerProfile` (Профиль продавца)
+Расширенная информация для продавцов.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `seller_profile_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `user_id` | Integer | Ссылка на пользователя | FK, Unique
+| `legal_name` | String | Юридическое название |
+| `tax_id` | String | Налоговый номер |
+| `bank_details` | String/JSON | Банковские реквизиты |
+| `total_sales` | Integer | Общее количество продаж | Default: 0
+|===
+
+===== Каталог
+
+====== `Category` (Рубрикация объявлений)
+Иерархическая структура категорий.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `category_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `parent_category_id` | Integer | Родительская категория | FK, Nullable
+| `name` | String | Название категории | Not Null
+| `description` | Text | Описание категории |
+|===
+
+====== `Item` (Объявление/Товар)
+Карточка товара, размещаемая продавцом.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `item_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `seller_id` | Integer | Идентификатор продавца | FK
+| `category_id` | Integer | Категория товара | FK
+| `title` | String | Название товара | Not Null
+| `description` | Text | Описание товара |
+| `price` | Decimal | Цена товара | > 0
+| `quantity_available` | Integer | Доступное количество | >= 0
+| `status` | Enum | Статус объявления | `active`/`sold`/`archived`
+| `publication_date` | DateTime | Дата публикации | Default: now()
+|===
+
+===== Заказы
+
+====== `Order` (Заказ)
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `order_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `order_number` | String | Номер заказа | Unique
+| `buyer_id` | Integer | Идентификатор покупателя | FK
+| `seller_id` | Integer | Идентификатор продавца | FK
+| `status` | Enum | Статус заказа | `created`/`paid`/`shipped`/`delivered`/`cancelled`/`refunded`
+| `total_amount` | Decimal | Общая сумма заказа | > 0
+| `created_date` | DateTime | Дата создания | Default: now()
+|===
+
+====== `OrderItem` (Позиция заказа)
+Связь товаров с заказом с фиксацией цены.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `order_item_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `order_id` | Integer | Идентификатор заказа | FK
+| `item_id` | Integer | Идентификатор товара | FK
+| `quantity` | Integer | Количество | > 0
+| `unit_price` | Decimal | Цена за единицу | Фиксация на момент покупки
+|===
+
+===== Платежи
+
+====== `Payment` (Платеж)
+Внешний платеж через платежный шлюз.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `payment_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `order_id` | Integer | Идентификатор заказа | FK
+| `external_payment_id` | String | ID во внешнем шлюзе | Unique
+| `amount` | Decimal | Сумма платежа | > 0
+| `status` | Enum | Статус платежа | `pending`/`succeeded`/`failed`
+| `gateway_name` | String | Название платежного шлюза |
+|===
+
+====== `Transaction` (Внутренняя финансовая транзакция)
+Учет денежных потоков внутри платформы.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `transaction_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `order_id` | Integer | Идентификатор заказа | FK
+| `payout_id` | Integer | Идентификатор выплаты | FK, Nullable
+| `type` | Enum | Тип транзакции | `sale`/`commission`/`payout`/`refund`
+| `amount` | Decimal | Сумма | Может быть отрицательной
+| `status` | Enum | Статус транзакции | `held`/`released`/`paid_out`
+|===
+
+====== `Payout` (Выплата продавцу)
+Агрегированная выплата продавцу за период.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `payout_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `seller_profile_id` | Integer | Идентификатор продавца | FK
+| `amount` | Decimal | Сумма к выплате | > 0
+| `status` | Enum | Статус выплаты | `pending`/`processing`/`completed`/`failed`
+| `processed_date` | DateTime | Фактическая дата выплаты |
+|===
+
+===== Доставка
+
+====== `DeliveryService` (Служба доставки)
+Интегрируемая служба доставки.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `delivery_service_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `name` | String | Название службы | Not Null
+| `is_active` | Boolean | Активна ли служба | Default: true
+|===
+
+====== `Shipment` (Доставка)
+Информация о доставке конкретного заказа.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `shipment_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `order_id` | Integer | Идентификатор заказа | FK, Unique
+| `delivery_service_id` | Integer | Идентификатор службы доставки | FK
+| `tracking_number` | String | Трек-номер |
+| `status` | Enum | Статус доставки | `label_created`/`picked_up`/`in_transit`/`delivered`
+|===
+
+===== Отзывы и коммуникация
+
+====== `Review` (Отзыв)
+Отзыв покупателя о продавце и сделке.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `review_id` | UUID/Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `order_id` | UUID/Integer | Идентификатор заказа | FK, Unique
+| `reviewer_id` | UUID/Integer | Идентификатор автора (покупатель) | FK
+| `target_id` | UUID/Integer | Идентификатор оцениваемого (продавец) | FK
+| `rating` | Integer | Оценка | 1-5
+| `comment` | Text | Текст отзыва |
+|===
+
+====== `Message` (Сообщение)
+Коммуникация между пользователями в рамках заказа.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `message_id` | UUID/Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `order_id` | UUID/Integer | Идентификатор заказа | FK
+| `sender_id` | UUID/Integer | Идентификатор отправителя | FK
+| `receiver_id` | UUID/Integer | Идентификатор получателя | FK
+| `text` | Text | Текст сообщения | Not Null
+| `timestamp` | DateTime | Время отправки | Default: now()
+|===
+
+===== Аналитика и аудит
+
+====== `Report` (Отчет/Дашборд)
+Сгенерированные отчеты для пользователей.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `report_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `type` | Enum | Тип отчета | `financial`/`sales`/`user_activity`
+| `generated_for_user_id` | UUID/Integer | Для кого сгенерирован | FK, Nullable
+| `file_url` | String | URL файла с отчетом |
+|===
+
+====== `Logging` (Журнал аудита)
+Логирование критических действий в системе.
+
+|===
+| Поле | Тип | Описание | Ограничения
+| `log_id` | Integer | Уникальный идентификатор | Первичный ключ (PK)
+| `user_id` | Integer | Идентификатор пользователя | FK, Nullable
+| `entity_type` | String | Тип сущности | `order`/`item`/`payment`
+| `entity_id` | String | Идентификатор сущности |
+| `action` | Enum | Действие | `create`/`update`/`delete`
+| `timestamp` | DateTime | Время события | Default: now()
+|===
+
+---
+
+==== Связи между сущностями
+
+|===
+| Сущность A | Кардинальность A | Кардинальность B | Сущность B | Описание
+| User | 1 | 1 | SellerProfile | Профиль продавца
+| User | 1 | M | Item | Размещенные объявления
+| User | 1 | M | Order (как buyer) | Заказы как покупатель
+| User | 1 | M | Order (как seller) | Заказы как продавец
+| Category | 1 | M | Item | Товары в категории
+| Category | 1 | M | Category | Иерархия категорий
+| Order | 1 | M | OrderItem | Позиции заказа
+| OrderItem | M | 1 | Item | Ссылка на товар
+| Order | 1 | 0..1 | Payment | Платеж по заказу
+| Order | 1 | M | Transaction | Финансовые транзакции
+| Transaction | M | 0..1 | Payout | Включение в выплату
+| SellerProfile | 1 | M | Payout | Выплаты продавцу
+| Order | 1 | 0..1 | Shipment | Доставка заказа
+| Shipment | M | 1 | DeliveryService | Служба доставки
+| Order | 1 | 0..1 | Review | Отзыв по заказу
+| User | 1 | M | Review (как reviewer) | Оставленные отзывы
+| User | 1 | M | Review (как target) | Полученные отзывы
+| Order | 1 | M | Message | Сообщения по заказу
+| User | 1 | M | Message (как sender) | Отправленные сообщения
+| User | 1 | M | Message (как receiver) | Полученные сообщения
+| User | 1 | M | Report | Сгенерированные отчеты
+| User | 1 | M | Logging | Действия пользователя
+|===
+

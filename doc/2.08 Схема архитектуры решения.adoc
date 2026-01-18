@@ -1,1 +1,6 @@
 === Схема архитектуры решения
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::lla.png[]
+
