@@ -1,9 +1,9 @@
 /.idea/***
-/Архитектурное решение.pdf
+/Архитектерное решение.pdf
+/billets
+/dir.txt
+/paragraphs.xlsx
 *.odt
 *.ods
-dir.txt
-paragraphs.xlsx
-gigaide*
-/billets
-
+/.gigaide
+/.~*

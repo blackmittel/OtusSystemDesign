@@ -1,1 +1,5 @@
 === Модель данных
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::datamodel.png[]
