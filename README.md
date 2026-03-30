@@ -13,3 +13,4 @@
 ```
 docker run --rm -v ./:/documents  asciidoctor/docker-asciidoctor asciidoctor-pdf "Архитектерное решение.adoc"
 ```
+docker run --rm -v ./:/documents asciidoctor/docker-asciidoctor asciidoctor-pdf architecture-decision.adoc
