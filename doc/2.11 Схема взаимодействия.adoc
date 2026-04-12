@@ -2,25 +2,29 @@
 
 ==== Принципы взаимодействия
 
-===== Синхронные взаимодействия
-Используются когда:
-- требуется мгновенный ответ пользователю
-- нужна строгая консистентность
-- операции короткие
+===== Синхронные
+- мгновенный ответ
+- строгая консистентность
+- короткие операции
 
 Протоколы:
 - HTTPS (REST)
 - gRPC
 
-===== Асинхронные взаимодействия
-Используются когда:
-- нет требования мгновенного ответа
-- требуется устойчивость к сбоям
-- есть несколько подписчиков
-- не требуется атомарная целостность
+===== Асинхронные
+- устойчивость к сбоям
+- fan-out
+- eventual consistency
 
 Протокол:
 - Kafka
+
+===== Messaging модель
+
+- отправка сообщения: синхронный write
+- получение сообщений: polling
+- Kafka НЕ участвует в доставке сообщений пользователю
+- Kafka используется только для событий (analytics, notifications)
 
 ---
 
@@ -28,91 +32,35 @@
 
 [cols="1,1,2,2,3",options="header"]
 |===
-| Компонент A | Компонент B | Тип | Протокол | Описание
+| A | B | Тип | Протокол | Описание
 
-| Client
-| GeoDNS
-| sync
-| DNS
-| Геораспределение трафика (Москва/Краснодар)
+| Client | GeoDNS | sync | DNS | Геораспределение
 
-| GeoDNS
-| API Gateway
-| sync
-| HTTPS
-| Маршрутизация в ближайший ЦОД
+| GeoDNS | API Gateway | sync | HTTPS | Маршрутизация
 
-| Client
-| CDN
-| sync
-| HTTPS
-| Получение медиа-контента
+| Client | CDN | sync | HTTPS | Медиа
 
-| API Gateway
-| Сервис авторизации
-| sync
-| gRPC
-| Проверка токена
+| API Gateway | Auth Service | sync | gRPC | Авторизация
 
-| API Gateway
-| Сервис объявлений
-| sync
-| HTTP
-| Объявления и сообщения
+| API Gateway | Ticket Service | sync | HTTP | Объявления + messaging
 
-| API Gateway
-| Сервис поиска
-| sync
-| HTTP
-| Поиск и рекомендации
+| API Gateway | Search Service | sync | HTTP | Поиск
 
-| API Gateway
-| Сервис заказов
-| sync
-| HTTP
-| Работа с заказами
+| API Gateway | Order Service | sync | HTTP | Заказы
 
-| API Gateway
-| Платёжный сервис
-| sync
-| HTTP
-| Инициация платежа
+| API Gateway | Payment Service | sync | HTTP | Платежи
 
-| API Gateway
-| Сервис пользователей
-| sync
-| HTTP
-| Профиль и списки
+| API Gateway | User Service | sync | HTTP | Пользователи
 
-| Сервис заказов
-| Платёжный сервис
-| sync
-| gRPC
-| Создание платежа
+| Order Service | Ticket Service | sync | HTTP | Проверка объявления
 
-| Сервис заказов
-| Сервис доставки
-| sync
-| gRPC
-| Расчёт доставки
+| Order Service | Payment Service | sync | gRPC | Создание платежа
 
-| Сервис расчётов
-| Платёжный сервис
-| sync
-| HTTP/gRPC
-| Выплаты продавцам
+| Order Service | Delivery Service | sync | gRPC | Расчёт доставки
 
-| Сервис объявлений
-| Сервис медиа
-| sync
-| HTTP
-| Загрузка/получение медиа
+| Billing Service | Payment Service | sync | HTTP/gRPC | Выплаты
 
-| API Gateway
-| Кэш
-| sync
-| RESP
-| Кэширование
+| API Gateway | Redis | sync | RESP | Кэш
 
 |===
 
@@ -122,84 +70,139 @@
 
 [cols="1,1,2,2,3",options="header"]
 |===
-| Компонент A | Компонент B | Тип | Протокол | Описание
+| A | B | Тип | Протокол | Описание
 
-| Платёжный сервис
-| Kafka
-| async-event
-| Kafka
-| Результат платежа
+| Order Service | Kafka | async | Kafka | order.events
 
-| Kafka
-| Сервис расчётов
-| async-event
-| Kafka
-| Учёт средств
+| Kafka | Payment Service | async | Kafka | создание платежа
 
-| Kafka
-| Сервис заказов
-| async-event
-| Kafka
-| Обновление статуса заказа
+| Kafka | Delivery Service | async | Kafka | запуск доставки
 
-| Сервис расчётов
-| Kafka
-| async-event
-| Kafka
-| Баланс и выплаты
+| Payment Service | Kafka | async | Kafka | payment.events
 
-| Сервис заказов
-| Kafka
-| async-event
-| Kafka
-| Новый заказ
+| Kafka | Order Service | async | Kafka | обновление заказа
 
-| Kafka
-| Сервис доставки
-| async-event
-| Kafka
-| Создание доставки
+| Kafka | Billing Service | async | Kafka | учёт средств
 
-| Сервис доставки
-| Kafka
-| async-event
-| Kafka
-| Статус доставки
+| Delivery Service | Kafka | async | Kafka | delivery.events
 
-| Сервис объявлений
-| Kafka
-| async-event
-| Kafka
-| Изменения объявлений
+| Kafka | Order Service | async | Kafka | статус доставки
 
-| Kafka
-| Сервис поиска
-| async-event
-| Kafka
-| Индексация и обучение
+| Ticket Service | Kafka | async | Kafka | ticket.events
 
-| Сервис поиска
-| Kafka
-| async-event
-| Kafka
-| Поведение пользователя
+| Kafka | Search Service | async | Kafka | индексация
 
-| Kafka
-| Аналитический сервис
-| async-event
-| Kafka
-| Аналитика
+| Kafka | Moderation Service | async | Kafka | модерация
 
-| Сервис объявлений
-| Kafka
-| async-event
-| Kafka
-| Сообщения пользователей
+| Ticket Service | Kafka | async | Kafka | message.events
 
-| Kafka
-| Аналитический сервис
-| async-event
-| Kafka
-| Уведомления
+| Kafka | Analytics Service | async | Kafka | аналитика
 
 |===
+==== Организация Kafka
+
+===== Topics
+
+- order.events
+- payment.events
+- delivery.events
+- ticket.events
+- moderation.events
+- billing.events
+- refund.events
+- analytics.events
+
+*DLQ:* *.dlq
+
+---
+
+===== Events
+
+order.events:
+
+- order.created
+- order.confirmed
+- order.cancelled
+- order.completed
+
+payment.events:
+
+- payment.succeeded
+- payment.failed
+- payment.refunded
+
+delivery.events:
+
+- delivery.created
+- delivery.completed
+- delivery.failed
+
+ticket.events:
+
+- ticket.created
+- ticket.updated
+- ticket.published
+- ticket.deleted
+
+message.events (внутри ticket.events):
+
+- message.created
+- message.sent
+- message.delivered
+- message.read
+
+---
+
+===== Partitioning
+
+order/payment/delivery:
+
+- key = order_id
+
+ticket:
+
+- key = ticket_id
+
+messaging:
+
+- pre-order → conversation_id
+- order → order_id
+
+---
+
+===== Consumer Groups
+
+- order-service
+- payment-service
+- delivery-service
+- ticket-service
+- billing-service
+- analytics-service
+- search-service
+- moderation-service
+
+---
+
+===== Обмен по Kafka
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::kafka events.png[]
+
+---
+
+===== Гарантии
+
+- at-least-once delivery
+- idempotent consumers
+- outbox pattern
+- DLQ + retry
+
+---
+
+===== Rules
+
+- topic per domain
+- events внутри topic
+- единый ключ для согласованных доменов
+- отсутствие sync-зависимостей между доменами
