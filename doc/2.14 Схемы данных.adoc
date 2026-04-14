@@ -60,6 +60,8 @@ image::Data Scheme Pack.png[]
 | reserved_quantity | INT | Зарезервировано
 | available_quantity | INT | Доступно
 | status | TEXT | Статус (Draft, Published...)
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
 |===
 
 ====== Состояния объявления
@@ -78,6 +80,8 @@ image::StateMachine Ticket.png[]
 | status | TEXT | Статус (Pending, Approved, Rejected)
 | moderator_id | UUID FK | Ссылка на User (moderator)
 | comment | TEXT | Комментарий модератора
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
 |===
 
 ====== Состояния объявления по модерации
@@ -105,6 +109,9 @@ image::StateMachine Moderation.png[]
 | sender_id | UUID FK | Отправитель (User)
 | body | TEXT | Текст сообщения
 | status | TEXT | Статус (Created, Sent, Read)
+| created_at | timestamp | время создания (зональное)
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
 |===
 ====== Состояния сообщений
 
@@ -122,6 +129,8 @@ image::StateMachine Message.png[]
 | quantity | INT | Количество зарезервированное
 | status | TEXT | Статус (Available, Reserved...)
 | expires_at | TIMESTAMP | Время истечения резерва
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
 |===
 ====== Состояния товара при резервировании
 
@@ -159,6 +168,8 @@ image::StateMachine Reservation.png[]
 | quantity | INT | Количество
 | total_price | NUMERIC | Сумма заказа
 | status | TEXT | Статус заказа (Created, PendingPayment...)
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
 |===
 ====== Состояния заказа
 
@@ -175,6 +186,8 @@ image::StateMachine Order.png[]
 | amount | NUMERIC | Сумма платежа
 | status | TEXT | Статус (Processing, Succeeded...)
 | provider | TEXT | Платежный провайдер
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
 |===
 ====== Состояния оплаты
 
@@ -186,12 +199,45 @@ image::StateMachine Payment.png[]
 [cols="1,1,2", options="header"]
 |===
 | Поле | Тип | Описание
-| transaction_id | UUID PK | Идентификатор транзакции
-| type | TEXT | Тип движения (debit/credit)
-| amount | NUMERIC | Сумма
-| from_account | UUID | Отправитель
-| to_account | UUID | Получатель
+| transaction_id
+| UUID PK
+| Уникальный идентификатор операции
+| order_id
+| UUID FK
+| Связь с заказом (контекст финансовой операции)
+| type
+| TEXT
+| Тип операции: PAYMENT / REFUND / PAYOUT
+| from_user_id
+| UUID
+| Инициатор списания (плательщик / система)
+| to_user_id
+| UUID
+| Получатель (продавец / покупатель / система)
+| amount
+| NUMERIC
+| Сумма операции
+| currency
+| TEXT
+| Валюта (RUB)
+| status
+| TEXT
+| CREATED / PROCESSED / FAILED
+| external_reference
+| TEXT
+| ID операции у платёжного провайдера (если есть)
+| created_at
+| timestamp
+| время создания (зональное)
+| updated_at | timestamp | время изменения (зональное). _Note: для транзакций ни к чему, но пусть будет_
 |===
+
+====== Состояния транзакций
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Transaction.png[]
+
 
 ===== Payout [Выплата]
 [cols="1,1,2", options="header"]
@@ -201,7 +247,15 @@ image::StateMachine Payment.png[]
 | seller_id | UUID FK | Ссылка на SellerProfile
 | amount | NUMERIC | Сумма выплаты
 | status | TEXT | Статус
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
 |===
+
+====== Состояния выплат
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Billing.png[]
 
 ===== Refund [Возврат]
 [cols="1,1,2", options="header"]
@@ -211,13 +265,15 @@ image::StateMachine Payment.png[]
 | payment_id | UUID FK | Ссылка на Payment
 | amount | NUMERIC | Сумма возврата
 | status | TEXT | Статус
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
 |===
 
-====== Состояния выплат
+====== Состояния возвратов
 
 ifndef::imagesdir[:imagesdir: {docdir}/images]
 
-image::StateMachine Billing.png[]
+image::StateMachine Refund.png[]
 
 ==== Доставка
 
@@ -271,3 +327,27 @@ image::StateMachine Delivery.png[]
 | text | TEXT | Текст отзыва
 |===
 
+===== Notification [Извещение]
+
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| notification_id
+| UUID
+| Уникальный идентификатор уведомления (PK)
+| user_id
+| UUID
+| Получатель уведомления (FK → User)
+| type
+| TEXT
+| Тип уведомления: order / payment / delivery / message / moderation / system
+| payload
+| JSONB
+| Контекст события для UI и обработки
+| status
+| TEXT
+| created / sent / read / failed
+| created_at
+| timestamp
+| Время создания уведомления
+|===

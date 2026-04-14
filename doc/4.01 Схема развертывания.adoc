@@ -19,14 +19,14 @@
 - Stateless, active-active
 
 * Сервис авторизации — контейнеры + базы
-- PostgreSQL (users, sessions)
-* Москва: Master shard 1
-* Краснодар: Master shard 2
-* Реплики shard 1 в Краснодар, shard 2 в Москву
-- Redis cluster (sessions + tokens)
-* Москва: Master 3 + 1 replica
-* Краснодар: Master 3 + 1 replica
-* Cluster mode, hash-slot шардирование
+** PostgreSQL (users, sessions)
+-  Москва: Master shard 1
+- Краснодар: Master shard 2
+- Реплики shard 1 в Краснодар, shard 2 в Москву
+* Redis cluster (sessions + tokens)
+- Москва: Master 3 + 1 replica
+- Краснодар: Master 3 + 1 replica
+- Cluster mode, hash-slot шардирование
 - Все записи пользователей и сессий идут в локальный мастер ЦОД
 
 * Сервис пользователей — контейнеры + PostgreSQL

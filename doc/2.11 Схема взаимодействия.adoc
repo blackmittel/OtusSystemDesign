@@ -19,10 +19,20 @@
 Протокол:
 - Kafka
 
+===== Внешние асинхронные взаимодействия (Webhook)
+
+Используются когда:
+- внешний провайдер инициирует событие
+- требуется near real-time уведомление
+- источник истины находится вне системы
+
+Протокол:
+- HTTPS (webhook)
+
 ===== Messaging модель
 
-- отправка сообщения: синхронный write
-- получение сообщений: polling
+- отправка сообщения: синхронный write (Client → API → Ticket Service)
+- получение сообщений: polling (Client → API → Ticket Service)
 - Kafka НЕ участвует в доставке сообщений пользователю
 - Kafka используется только для событий (analytics, notifications)
 
@@ -40,21 +50,19 @@
 
 | Client | CDN | sync | HTTPS | Медиа
 
-| API Gateway | Auth Service | sync | gRPC | Авторизация
+| API Gateway | Auth Service | sync | gRPC | Авторизация (токен)
+ 
+| API Gateway | Search Service | sync | HTTP | Поиск
+
+| API Gateway | Order Service | sync | HTTP | Заказы (создание, управление)
 
 | API Gateway | Ticket Service | sync | HTTP | Объявления + messaging
 
-| API Gateway | Search Service | sync | HTTP | Поиск
-
-| API Gateway | Order Service | sync | HTTP | Заказы
-
-| API Gateway | Payment Service | sync | HTTP | Платежи
-
 | API Gateway | User Service | sync | HTTP | Пользователи
 
-| Order Service | Ticket Service | sync | HTTP | Проверка объявления
+| Order Service | Ticket Service | sync | HTTP | Проверка объявления (резервирование)
 
-| Order Service | Payment Service | sync | gRPC | Создание платежа
+| Order Service | Payment Service | sync | gRPC | Создание платежа (createPayment)
 
 | Order Service | Delivery Service | sync | gRPC | Расчёт доставки
 
@@ -74,31 +82,40 @@
 
 | Order Service | Kafka | async | Kafka | order.events
 
-| Kafka | Payment Service | async | Kafka | создание платежа
+| Payment Service | Kafka | async | Kafka | payment.events (из webhook)
 
-| Kafka | Delivery Service | async | Kafka | запуск доставки
-
-| Payment Service | Kafka | async | Kafka | payment.events
-
-| Kafka | Order Service | async | Kafka | обновление заказа
+| Kafka | Order Service | async | Kafka | обновление статуса заказа
 
 | Kafka | Billing Service | async | Kafka | учёт средств
 
+| Kafka | Delivery Service | async | Kafka | запуск доставки
+
 | Delivery Service | Kafka | async | Kafka | delivery.events
 
-| Kafka | Order Service | async | Kafka | статус доставки
+| Kafka | Order Service | async | Kafka | обновления доставки заказа
 
-| Ticket Service | Kafka | async | Kafka | ticket.events
+| Ticket Service | Kafka | async | Kafka | ticket.events (изменения и резерв)
 
 | Kafka | Search Service | async | Kafka | индексация
 
-| Kafka | Moderation Service | async | Kafka | модерация
-
 | Ticket Service | Kafka | async | Kafka | message.events
 
-| Kafka | Analytics Service | async | Kafka | аналитика
+| Kafka | Analytics Service | async | Kafka | аналитика (и моделирование пользователей)
 
 |===
+
+==== Внешние взаимодействия (Webhook)
+
+[cols="1,1,2,2,3",options="header"]
+|===
+| Компонент A | Компонент B | Тип | Протокол | Описание
+
+| Платёжный агрегатор | Payment Service | async | HTTPS (webhook) | Уведомление о статусе платежа 
+
+|===
+
+---
+
 ==== Организация Kafka
 
 ===== Topics
@@ -107,9 +124,7 @@
 - payment.events
 - delivery.events
 - ticket.events
-- moderation.events
 - billing.events
-- refund.events
 - analytics.events
 
 *DLQ:* *.dlq
@@ -127,6 +142,8 @@ order.events:
 
 payment.events:
 
+- payment.created
+- payment.processing
 - payment.succeeded
 - payment.failed
 - payment.refunded
@@ -134,6 +151,7 @@ payment.events:
 delivery.events:
 
 - delivery.created
+- delivery.in_transit
 - delivery.completed
 - delivery.failed
 
@@ -144,12 +162,14 @@ ticket.events:
 - ticket.published
 - ticket.deleted
 
-message.events (внутри ticket.events):
+message.events:
 
 - message.created
 - message.sent
 - message.delivered
 - message.read
+
+analytics: consumer-only
 
 ---
 
@@ -165,8 +185,7 @@ ticket:
 
 messaging:
 
-- pre-order → conversation_id
-- order → order_id
+- key = conversation_id
 
 ---
 
@@ -176,18 +195,17 @@ messaging:
 - payment-service
 - delivery-service
 - ticket-service
-- billing-service
 - analytics-service
 - search-service
-- moderation-service
+
 
 ---
 
-===== Обмен по Kafka
+===== Диаграмма обмена
 
 ifndef::imagesdir[:imagesdir: {docdir}/images]
 
-image::kafka events.png[]
+image::Sequence Full Process.png[]
 
 ---
 
