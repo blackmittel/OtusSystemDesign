@@ -1,1 +1,226 @@
 === Схема взаимодействия
+
+==== Принципы взаимодействия
+
+===== Синхронные
+- мгновенный ответ
+- строгая консистентность
+- короткие операции
+
+Протоколы:
+- HTTPS (REST)
+- gRPC
+
+===== Асинхронные
+- устойчивость к сбоям
+- fan-out
+- eventual consistency
+
+Протокол:
+- Kafka
+
+===== Внешние асинхронные взаимодействия (Webhook)
+
+Используются когда:
+- внешний провайдер инициирует событие
+- требуется near real-time уведомление
+- источник истины находится вне системы
+
+Протокол:
+- HTTPS (webhook)
+
+===== Messaging модель
+
+- отправка сообщения: синхронный write (Client → API → Ticket Service)
+- получение сообщений: polling (Client → API → Ticket Service)
+- Kafka НЕ участвует в доставке сообщений пользователю
+- Kafka используется только для событий (analytics, notifications)
+
+---
+
+==== Синхронные взаимодействия
+
+[cols="1,1,2,2,3",options="header"]
+|===
+| A | B | Тип | Протокол | Описание
+
+| Client | GeoDNS | sync | DNS | Геораспределение
+
+| GeoDNS | API Gateway | sync | HTTPS | Маршрутизация
+
+| Client | CDN | sync | HTTPS | Медиа
+
+| API Gateway | Auth Service | sync | gRPC | Авторизация (токен)
+ 
+| API Gateway | Search Service | sync | HTTP | Поиск
+
+| API Gateway | Order Service | sync | HTTP | Заказы (создание, управление)
+
+| API Gateway | Ticket Service | sync | HTTP | Объявления + messaging
+
+| API Gateway | User Service | sync | HTTP | Пользователи
+
+| Order Service | Ticket Service | sync | HTTP | Проверка объявления (резервирование)
+
+| Order Service | Payment Service | sync | gRPC | Создание платежа (createPayment)
+
+| Order Service | Delivery Service | sync | gRPC | Расчёт доставки
+
+| Billing Service | Payment Service | sync | HTTP/gRPC | Выплаты
+
+| API Gateway | Redis | sync | RESP | Кэш
+
+|===
+
+---
+
+==== Асинхронные взаимодействия (Kafka)
+
+[cols="1,1,2,2,3",options="header"]
+|===
+| A | B | Тип | Протокол | Описание
+
+| Order Service | Kafka | async | Kafka | order.events
+
+| Payment Service | Kafka | async | Kafka | payment.events (из webhook)
+
+| Kafka | Order Service | async | Kafka | обновление статуса заказа
+
+| Kafka | Billing Service | async | Kafka | учёт средств
+
+| Kafka | Delivery Service | async | Kafka | запуск доставки
+
+| Delivery Service | Kafka | async | Kafka | delivery.events
+
+| Kafka | Order Service | async | Kafka | обновления доставки заказа
+
+| Ticket Service | Kafka | async | Kafka | ticket.events (изменения и резерв)
+
+| Kafka | Search Service | async | Kafka | индексация
+
+| Ticket Service | Kafka | async | Kafka | message.events
+
+| Kafka | Analytics Service | async | Kafka | аналитика (и моделирование пользователей)
+
+|===
+
+==== Внешние взаимодействия (Webhook)
+
+[cols="1,1,2,2,3",options="header"]
+|===
+| Компонент A | Компонент B | Тип | Протокол | Описание
+
+| Платёжный агрегатор | Payment Service | async | HTTPS (webhook) | Уведомление о статусе платежа 
+
+|===
+
+---
+
+==== Организация Kafka
+
+===== Topics
+
+- order.events
+- payment.events
+- delivery.events
+- ticket.events
+- billing.events
+- analytics.events
+
+*DLQ:* *.dlq
+
+---
+
+===== Events
+
+order.events:
+
+- order.created
+- order.confirmed
+- order.cancelled
+- order.completed
+
+payment.events:
+
+- payment.created
+- payment.processing
+- payment.succeeded
+- payment.failed
+- payment.refunded
+
+delivery.events:
+
+- delivery.created
+- delivery.in_transit
+- delivery.completed
+- delivery.failed
+
+ticket.events:
+
+- ticket.created
+- ticket.updated
+- ticket.published
+- ticket.deleted
+
+message.events:
+
+- message.created
+- message.sent
+- message.delivered
+- message.read
+
+analytics: consumer-only
+
+---
+
+===== Partitioning
+
+order/payment/delivery:
+
+- key = order_id
+
+ticket:
+
+- key = ticket_id
+
+messaging:
+
+- key = conversation_id
+
+---
+
+===== Consumer Groups
+
+- order-service
+- payment-service
+- delivery-service
+- ticket-service
+- analytics-service
+- search-service
+
+
+---
+
+===== Диаграмма обмена
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::Sequence Full Process.png[]
+
+---
+
+===== Гарантии
+
+- at-least-once delivery
+- idempotent consumers
+- outbox pattern
+- DLQ + retry
+
+---
+
+===== Rules
+
+- topic per domain
+- events внутри topic
+- единый ключ для согласованных доменов
+- отсутствие sync-зависимостей между доменами

@@ -1,1 +1,353 @@
 === Схемы данных
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::Data Scheme Pack.png[]
+
+==== Пользователи и роли
+
+===== User
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| user_id | UUID PK | Идентификатор пользователя
+| email | TEXT | Электронная почта
+| phone | TEXT | Телефон
+| password_hash | TEXT | Хэш пароля
+| status | TEXT | Статус пользователя
+|===
+
+===== Role
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| role_id | UUID PK | Идентификатор роли
+| name | TEXT | Название роли (buyer, seller, moderator...)
+|===
+
+===== UserRole [связь пользователя с ролью]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| user_id | UUID FK | Ссылка на User
+| role_id | UUID FK | Ссылка на Role
+|===
+
+===== SellerProfile [профиль продавца]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| seller_id | UUID PK | Идентификатор профиля продавца
+| user_id | UUID FK | Ссылка на User
+| type | TEXT | Тип продавца (физическое/юр. лицо)
+| rating | NUMERIC | Рейтинг продавца
+| legal_info | JSONB | Юридические реквизиты
+|===
+
+==== Объявления и сообщения
+
+===== Ticket [объявление]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| ticket_id | UUID PK | Идентификатор объявления
+| seller_id | UUID FK | Ссылка на User (seller)
+| title | TEXT | Заголовок
+| description | TEXT | Описание
+| category_id | UUID FK | Ссылка на Category
+| price | NUMERIC | Цена
+| total_quantity | INT | Всего единиц
+| reserved_quantity | INT | Зарезервировано
+| available_quantity | INT | Доступно
+| status | TEXT | Статус (Draft, Published...)
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
+|===
+
+====== Состояния объявления
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Ticket.png[]
+
+
+===== Moderation [Резолюция модератора]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| moderation_id | UUID PK | Идентификатор модерации
+| ticket_id | UUID FK | Ссылка на Ticket
+| status | TEXT | Статус (Pending, Approved, Rejected)
+| moderator_id | UUID FK | Ссылка на User (moderator)
+| comment | TEXT | Комментарий модератора
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
+|===
+
+====== Состояния объявления по модерации
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Moderation.png[]
+
+===== Conversation [диалог]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| conversation_id | UUID PK | Идентификатор диалога
+| ticket_id | UUID FK | Ссылка на Ticket
+| buyer_id | UUID FK | Ссылка на User
+| seller_id | UUID FK | Ссылка на User
+|===
+
+===== Message [Сообщение диалога]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| message_id | UUID PK | Идентификатор сообщения
+| conversation_id | UUID FK | Ссылка на Conversation
+| sender_id | UUID FK | Отправитель (User)
+| body | TEXT | Текст сообщения
+| status | TEXT | Статус (Created, Sent, Read)
+| created_at | timestamp | время создания (зональное)
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
+|===
+====== Состояния сообщений
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Message.png[]
+
+===== Reservation [Резерв товара]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| reservation_id | UUID PK | Идентификатор резерва
+| ticket_id | UUID FK | Ссылка на Ticket
+| order_id | UUID FK | Ссылка на Order
+| quantity | INT | Количество зарезервированное
+| status | TEXT | Статус (Available, Reserved...)
+| expires_at | TIMESTAMP | Время истечения резерва
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
+|===
+====== Состояния товара при резервировании
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Reservation.png[]
+
+===== Category  [Категория товара (классификция по каталогу)]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| category_id | UUID PK | Идентификатор категории
+| parent_id | UUID FK | Родительская категория
+| name | TEXT | Название категории
+|===
+
+===== FavoriteList [wishlist пользователя]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| user_id | UUID FK | Ссылка на User
+| ticket_id | UUID FK | Ссылка на Ticket
+|===
+
+==== Заказы и платежи
+
+===== Order [Заказ]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| order_id | UUID PK | Идентификатор заказа
+| buyer_id | UUID FK | Ссылка на User
+| seller_id | UUID FK | Ссылка на User
+| ticket_id | UUID FK | Ссылка на Ticket
+| quantity | INT | Количество
+| total_price | NUMERIC | Сумма заказа
+| status | TEXT | Статус заказа (Created, PendingPayment...)
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
+|===
+====== Состояния заказа
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Order.png[]
+
+===== Payment [Оплата заказа]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| payment_id | UUID PK | Идентификатор платежа
+| order_id | UUID FK | Ссылка на Order
+| amount | NUMERIC | Сумма платежа
+| status | TEXT | Статус (Processing, Succeeded...)
+| provider | TEXT | Платежный провайдер
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
+|===
+====== Состояния оплаты
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Payment.png[]
+
+===== Transaction [Транзакция]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| transaction_id
+| UUID PK
+| Уникальный идентификатор операции
+| order_id
+| UUID FK
+| Связь с заказом (контекст финансовой операции)
+| type
+| TEXT
+| Тип операции: PAYMENT / REFUND / PAYOUT
+| from_user_id
+| UUID
+| Инициатор списания (плательщик / система)
+| to_user_id
+| UUID
+| Получатель (продавец / покупатель / система)
+| amount
+| NUMERIC
+| Сумма операции
+| currency
+| TEXT
+| Валюта (RUB)
+| status
+| TEXT
+| CREATED / PROCESSED / FAILED
+| external_reference
+| TEXT
+| ID операции у платёжного провайдера (если есть)
+| created_at
+| timestamp
+| время создания (зональное)
+| updated_at | timestamp | время изменения (зональное). _Note: для транзакций ни к чему, но пусть будет_
+|===
+
+====== Состояния транзакций
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Transaction.png[]
+
+
+===== Payout [Выплата]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| payout_id | UUID PK | Идентификатор выплаты
+| seller_id | UUID FK | Ссылка на SellerProfile
+| amount | NUMERIC | Сумма выплаты
+| status | TEXT | Статус
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
+|===
+
+====== Состояния выплат
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Billing.png[]
+
+===== Refund [Возврат]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| refund_id | UUID PK | Идентификатор возврата
+| payment_id | UUID FK | Ссылка на Payment
+| amount | NUMERIC | Сумма возврата
+| status | TEXT | Статус
+| created_at | timestamp | время создания (зональное)
+| updated_at | timestamp | время изменения (зональное)
+|===
+
+====== Состояния возвратов
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Refund.png[]
+
+==== Доставка
+
+===== Shipment [собственно доставка]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| shipment_id | UUID PK | Идентификатор доставки
+| order_id | UUID FK | Ссылка на Order
+| delivery_service_id | UUID FK | Ссылка на DeliveryService
+| tracking_number | TEXT | Трек-номер
+| status | TEXT | Статус доставки
+|===
+
+====== Состояния доставки
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Delivery.png[]
+
+===== DeliveryService [логистическая служба]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| delivery_service_id | UUID PK | Идентификатор службы доставки
+| name | TEXT | Название службы
+| api_endpoint | TEXT | API службы
+|===
+
+==== Поддержка
+
+===== Notification [Уведомление]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| notification_id | UUID PK | Идентификатор уведомления
+| user_id | UUID FK | Ссылка на User
+| type | TEXT | Тип уведомления
+| payload | JSONB | Данные уведомления
+| status | TEXT | Статус
+|===
+
+===== Review [Отзыв]
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| review_id | UUID PK | Идентификатор отзыва
+| author_id | UUID FK | Автор (User)
+| target_id | UUID FK | Получатель отзыва (User)
+| rating | INT | Оценка
+| text | TEXT | Текст отзыва
+|===
+
+===== Notification [Извещение]
+
+[cols="1,1,2", options="header"]
+|===
+| Поле | Тип | Описание
+| notification_id
+| UUID
+| Уникальный идентификатор уведомления (PK)
+| user_id
+| UUID
+| Получатель уведомления (FK → User)
+| type
+| TEXT
+| Тип уведомления: order / payment / delivery / message / moderation / system
+| payload
+| JSONB
+| Контекст события для UI и обработки
+| status
+| TEXT
+| created / sent / read / failed
+| created_at
+| timestamp
+| Время создания уведомления
+|===
