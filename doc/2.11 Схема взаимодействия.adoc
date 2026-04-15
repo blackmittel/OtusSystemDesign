@@ -1,1 +1,208 @@
 === Схема взаимодействия
+
+==== Принципы взаимодействия
+
+===== Синхронные
+- мгновенный ответ
+- строгая консистентность
+- короткие операции
+
+Протоколы:
+- HTTPS (REST)
+- gRPC
+
+===== Асинхронные
+- устойчивость к сбоям
+- fan-out
+- eventual consistency
+
+Протокол:
+- Kafka
+
+===== Messaging модель
+
+- отправка сообщения: синхронный write
+- получение сообщений: polling
+- Kafka НЕ участвует в доставке сообщений пользователю
+- Kafka используется только для событий (analytics, notifications)
+
+---
+
+==== Синхронные взаимодействия
+
+[cols="1,1,2,2,3",options="header"]
+|===
+| A | B | Тип | Протокол | Описание
+
+| Client | GeoDNS | sync | DNS | Геораспределение
+
+| GeoDNS | API Gateway | sync | HTTPS | Маршрутизация
+
+| Client | CDN | sync | HTTPS | Медиа
+
+| API Gateway | Auth Service | sync | gRPC | Авторизация
+
+| API Gateway | Ticket Service | sync | HTTP | Объявления + messaging
+
+| API Gateway | Search Service | sync | HTTP | Поиск
+
+| API Gateway | Order Service | sync | HTTP | Заказы
+
+| API Gateway | Payment Service | sync | HTTP | Платежи
+
+| API Gateway | User Service | sync | HTTP | Пользователи
+
+| Order Service | Ticket Service | sync | HTTP | Проверка объявления
+
+| Order Service | Payment Service | sync | gRPC | Создание платежа
+
+| Order Service | Delivery Service | sync | gRPC | Расчёт доставки
+
+| Billing Service | Payment Service | sync | HTTP/gRPC | Выплаты
+
+| API Gateway | Redis | sync | RESP | Кэш
+
+|===
+
+---
+
+==== Асинхронные взаимодействия (Kafka)
+
+[cols="1,1,2,2,3",options="header"]
+|===
+| A | B | Тип | Протокол | Описание
+
+| Order Service | Kafka | async | Kafka | order.events
+
+| Kafka | Payment Service | async | Kafka | создание платежа
+
+| Kafka | Delivery Service | async | Kafka | запуск доставки
+
+| Payment Service | Kafka | async | Kafka | payment.events
+
+| Kafka | Order Service | async | Kafka | обновление заказа
+
+| Kafka | Billing Service | async | Kafka | учёт средств
+
+| Delivery Service | Kafka | async | Kafka | delivery.events
+
+| Kafka | Order Service | async | Kafka | статус доставки
+
+| Ticket Service | Kafka | async | Kafka | ticket.events
+
+| Kafka | Search Service | async | Kafka | индексация
+
+| Kafka | Moderation Service | async | Kafka | модерация
+
+| Ticket Service | Kafka | async | Kafka | message.events
+
+| Kafka | Analytics Service | async | Kafka | аналитика
+
+|===
+==== Организация Kafka
+
+===== Topics
+
+- order.events
+- payment.events
+- delivery.events
+- ticket.events
+- moderation.events
+- billing.events
+- refund.events
+- analytics.events
+
+*DLQ:* *.dlq
+
+---
+
+===== Events
+
+order.events:
+
+- order.created
+- order.confirmed
+- order.cancelled
+- order.completed
+
+payment.events:
+
+- payment.succeeded
+- payment.failed
+- payment.refunded
+
+delivery.events:
+
+- delivery.created
+- delivery.completed
+- delivery.failed
+
+ticket.events:
+
+- ticket.created
+- ticket.updated
+- ticket.published
+- ticket.deleted
+
+message.events (внутри ticket.events):
+
+- message.created
+- message.sent
+- message.delivered
+- message.read
+
+---
+
+===== Partitioning
+
+order/payment/delivery:
+
+- key = order_id
+
+ticket:
+
+- key = ticket_id
+
+messaging:
+
+- pre-order → conversation_id
+- order → order_id
+
+---
+
+===== Consumer Groups
+
+- order-service
+- payment-service
+- delivery-service
+- ticket-service
+- billing-service
+- analytics-service
+- search-service
+- moderation-service
+
+---
+
+===== Обмен по Kafka
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::kafka events.png[]
+
+---
+
+===== Гарантии
+
+- at-least-once delivery
+- idempotent consumers
+- outbox pattern
+- DLQ + retry
+
+---
+
+===== Rules
+
+- topic per domain
+- events внутри topic
+- единый ключ для согласованных доменов
+- отсутствие sync-зависимостей между доменами
