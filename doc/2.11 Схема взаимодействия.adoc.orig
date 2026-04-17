@@ -19,6 +19,12 @@
 Протокол:
 - Kafka
 
+<<<<<<< HEAD
+===== Messaging модель
+
+- отправка сообщения: синхронный write
+- получение сообщений: polling
+=======
 ===== Внешние асинхронные взаимодействия (Webhook)
 
 Используются когда:
@@ -33,6 +39,7 @@
 
 - отправка сообщения: синхронный write (Client → API → Ticket Service)
 - получение сообщений: polling (Client → API → Ticket Service)
+>>>>>>> hw-05
 - Kafka НЕ участвует в доставке сообщений пользователю
 - Kafka используется только для событий (analytics, notifications)
 
@@ -50,6 +57,23 @@
 
 | Client | CDN | sync | HTTPS | Медиа
 
+<<<<<<< HEAD
+| API Gateway | Auth Service | sync | gRPC | Авторизация
+
+| API Gateway | Ticket Service | sync | HTTP | Объявления + messaging
+
+| API Gateway | Search Service | sync | HTTP | Поиск
+
+| API Gateway | Order Service | sync | HTTP | Заказы
+
+| API Gateway | Payment Service | sync | HTTP | Платежи
+
+| API Gateway | User Service | sync | HTTP | Пользователи
+
+| Order Service | Ticket Service | sync | HTTP | Проверка объявления
+
+| Order Service | Payment Service | sync | gRPC | Создание платежа
+=======
 | API Gateway | Auth Service | sync | gRPC | Авторизация (токен)
  
 | API Gateway | Search Service | sync | HTTP | Поиск
@@ -63,6 +87,7 @@
 | Order Service | Ticket Service | sync | HTTP | Проверка объявления (резервирование)
 
 | Order Service | Payment Service | sync | gRPC | Создание платежа (createPayment)
+>>>>>>> hw-05
 
 | Order Service | Delivery Service | sync | gRPC | Расчёт доставки
 
@@ -82,6 +107,33 @@
 
 | Order Service | Kafka | async | Kafka | order.events
 
+<<<<<<< HEAD
+| Kafka | Payment Service | async | Kafka | создание платежа
+
+| Kafka | Delivery Service | async | Kafka | запуск доставки
+
+| Payment Service | Kafka | async | Kafka | payment.events
+
+| Kafka | Order Service | async | Kafka | обновление заказа
+
+| Kafka | Billing Service | async | Kafka | учёт средств
+
+| Delivery Service | Kafka | async | Kafka | delivery.events
+
+| Kafka | Order Service | async | Kafka | статус доставки
+
+| Ticket Service | Kafka | async | Kafka | ticket.events
+
+| Kafka | Search Service | async | Kafka | индексация
+
+| Kafka | Moderation Service | async | Kafka | модерация
+
+| Ticket Service | Kafka | async | Kafka | message.events
+
+| Kafka | Analytics Service | async | Kafka | аналитика
+
+|===
+=======
 | Payment Service | Kafka | async | Kafka | payment.events (из webhook)
 
 | Kafka | Order Service | async | Kafka | обновление статуса заказа
@@ -116,6 +168,7 @@
 
 ---
 
+>>>>>>> hw-05
 ==== Организация Kafka
 
 ===== Topics
@@ -124,7 +177,13 @@
 - payment.events
 - delivery.events
 - ticket.events
+<<<<<<< HEAD
+- moderation.events
 - billing.events
+- refund.events
+=======
+- billing.events
+>>>>>>> hw-05
 - analytics.events
 
 *DLQ:* *.dlq
@@ -142,8 +201,11 @@ order.events:
 
 payment.events:
 
+<<<<<<< HEAD
+=======
 - payment.created
 - payment.processing
+>>>>>>> hw-05
 - payment.succeeded
 - payment.failed
 - payment.refunded
@@ -151,7 +213,10 @@ payment.events:
 delivery.events:
 
 - delivery.created
+<<<<<<< HEAD
+=======
 - delivery.in_transit
+>>>>>>> hw-05
 - delivery.completed
 - delivery.failed
 
@@ -162,15 +227,22 @@ ticket.events:
 - ticket.published
 - ticket.deleted
 
+<<<<<<< HEAD
+message.events (внутри ticket.events):
+=======
 message.events:
+>>>>>>> hw-05
 
 - message.created
 - message.sent
 - message.delivered
 - message.read
 
+<<<<<<< HEAD
+=======
 analytics: consumer-only
 
+>>>>>>> hw-05
 ---
 
 ===== Partitioning
@@ -185,7 +257,12 @@ ticket:
 
 messaging:
 
+<<<<<<< HEAD
+- pre-order → conversation_id
+- order → order_id
+=======
 - key = conversation_id
+>>>>>>> hw-05
 
 ---
 
@@ -195,6 +272,20 @@ messaging:
 - payment-service
 - delivery-service
 - ticket-service
+<<<<<<< HEAD
+- billing-service
+- analytics-service
+- search-service
+- moderation-service
+
+---
+
+===== Обмен по Kafka
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::kafka events.png[]
+=======
 - analytics-service
 - search-service
 
@@ -206,6 +297,7 @@ messaging:
 ifndef::imagesdir[:imagesdir: {docdir}/images]
 
 image::Sequence Full Process.png[]
+>>>>>>> hw-05
 
 ---
 

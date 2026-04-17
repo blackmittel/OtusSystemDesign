@@ -60,8 +60,11 @@ image::Data Scheme Pack.png[]
 | reserved_quantity | INT | Зарезервировано
 | available_quantity | INT | Доступно
 | status | TEXT | Статус (Draft, Published...)
+<<<<<<< HEAD
+=======
 | created_at | timestamp | время создания (зональное)
 | updated_at | timestamp | время изменения (зональное)
+>>>>>>> hw-05
 |===
 
 ====== Состояния объявления
@@ -80,8 +83,11 @@ image::StateMachine Ticket.png[]
 | status | TEXT | Статус (Pending, Approved, Rejected)
 | moderator_id | UUID FK | Ссылка на User (moderator)
 | comment | TEXT | Комментарий модератора
+<<<<<<< HEAD
+=======
 | created_at | timestamp | время создания (зональное)
 | updated_at | timestamp | время изменения (зональное)
+>>>>>>> hw-05
 |===
 
 ====== Состояния объявления по модерации
@@ -109,8 +115,12 @@ image::StateMachine Moderation.png[]
 | sender_id | UUID FK | Отправитель (User)
 | body | TEXT | Текст сообщения
 | status | TEXT | Статус (Created, Sent, Read)
+<<<<<<< HEAD
+=======
+| created_at | timestamp | время создания (зональное)
 | created_at | timestamp | время создания (зональное)
 | updated_at | timestamp | время изменения (зональное)
+>>>>>>> hw-05
 |===
 ====== Состояния сообщений
 
@@ -128,8 +138,11 @@ image::StateMachine Message.png[]
 | quantity | INT | Количество зарезервированное
 | status | TEXT | Статус (Available, Reserved...)
 | expires_at | TIMESTAMP | Время истечения резерва
+<<<<<<< HEAD
+=======
 | created_at | timestamp | время создания (зональное)
 | updated_at | timestamp | время изменения (зональное)
+>>>>>>> hw-05
 |===
 ====== Состояния товара при резервировании
 
@@ -167,8 +180,11 @@ image::StateMachine Reservation.png[]
 | quantity | INT | Количество
 | total_price | NUMERIC | Сумма заказа
 | status | TEXT | Статус заказа (Created, PendingPayment...)
+<<<<<<< HEAD
+=======
 | created_at | timestamp | время создания (зональное)
 | updated_at | timestamp | время изменения (зональное)
+>>>>>>> hw-05
 |===
 ====== Состояния заказа
 
@@ -185,8 +201,11 @@ image::StateMachine Order.png[]
 | amount | NUMERIC | Сумма платежа
 | status | TEXT | Статус (Processing, Succeeded...)
 | provider | TEXT | Платежный провайдер
+<<<<<<< HEAD
+=======
 | created_at | timestamp | время создания (зональное)
 | updated_at | timestamp | время изменения (зональное)
+>>>>>>> hw-05
 |===
 ====== Состояния оплаты
 
@@ -198,6 +217,15 @@ image::StateMachine Payment.png[]
 [cols="1,1,2", options="header"]
 |===
 | Поле | Тип | Описание
+<<<<<<< HEAD
+| transaction_id | UUID PK | Идентификатор транзакции
+| type | TEXT | Тип движения (debit/credit)
+| amount | NUMERIC | Сумма
+| from_account | UUID | Отправитель
+| to_account | UUID | Получатель
+|===
+
+=======
 | transaction_id
 | UUID PK
 | Уникальный идентификатор операции
@@ -238,6 +266,7 @@ ifndef::imagesdir[:imagesdir: {docdir}/images]
 image::StateMachine Transaction.png[]
 
 
+>>>>>>> hw-05
 ===== Payout [Выплата]
 [cols="1,1,2", options="header"]
 |===
@@ -246,6 +275,10 @@ image::StateMachine Transaction.png[]
 | seller_id | UUID FK | Ссылка на SellerProfile
 | amount | NUMERIC | Сумма выплаты
 | status | TEXT | Статус
+<<<<<<< HEAD
+|===
+
+=======
 | created_at | timestamp | время создания (зональное)
 | updated_at | timestamp | время изменения (зональное)
 |===
@@ -256,6 +289,7 @@ ifndef::imagesdir[:imagesdir: {docdir}/images]
 
 image::StateMachine Billing.png[]
 
+>>>>>>> hw-05
 ===== Refund [Возврат]
 [cols="1,1,2", options="header"]
 |===
@@ -264,6 +298,15 @@ image::StateMachine Billing.png[]
 | payment_id | UUID FK | Ссылка на Payment
 | amount | NUMERIC | Сумма возврата
 | status | TEXT | Статус
+<<<<<<< HEAD
+|===
+
+====== Состояния выплат
+
+ifndef::imagesdir[:imagesdir: {docdir}/images]
+
+image::StateMachine Billing.png[]
+=======
 | created_at | timestamp | время создания (зональное)
 | updated_at | timestamp | время изменения (зональное)
 |===
@@ -273,6 +316,7 @@ image::StateMachine Billing.png[]
 ifndef::imagesdir[:imagesdir: {docdir}/images]
 
 image::StateMachine Refund.png[]
+>>>>>>> hw-05
 
 ==== Доставка
 
@@ -326,6 +370,8 @@ image::StateMachine Delivery.png[]
 | text | TEXT | Текст отзыва
 |===
 
+<<<<<<< HEAD
+=======
 ===== Notification [Извещение]
 
 [cols="1,1,2", options="header"]
@@ -350,3 +396,4 @@ image::StateMachine Delivery.png[]
 | timestamp
 | Время создания уведомления
 |===
+>>>>>>> hw-05
