@@ -156,6 +156,66 @@
 | Async
 | Обновление поведенческого профиля пользователя на основе его активности в системе
 
+| IF-26
+| Аналитика (ClickHouse)
+| Kafka → ClickHouse
+| Async
+| Инжест всех событий (user_events, ads_events, orders, payments, search) в ClickHouse через Kafka Engine и materialized views
+
+| IF-27
+| Аналитика (ClickHouse)
+| ClickHouse → Grafana
+| Sync
+| Построение BI-дашбордов (DAU, MAU, CTR, GMV, revenue) и визуализация метрик в реальном времени
+
+| IF-28
+| Аналитика (ClickHouse)
+| ClickHouse → Recommendation Service
+| Sync / Async
+| Предоставление агрегатов (популярность, тренды, co-view/co-click) для формирования рекомендаций
+
+| IF-29
+| Аналитика (ClickHouse)
+| ClickHouse → Search Service
+| Async
+| Обогащение поискового индекса сигналами ранжирования (популярность, конверсии, freshness)
+
+| IF-30
+| Аналитика (ClickHouse)
+| ClickHouse → Kafka
+| Async
+| Публикация агрегированных событий (триггеры: популярное объявление, аномалии, всплески активности)
+
+| IF-31
+| Аналитика (ClickHouse)
+| ClickHouse → Notification Service
+| Async
+| Генерация событий для пользовательских уведомлений (рост интереса к объявлению, рекомендации, изменения цен)
+
+| IF-32
+| Аналитика (ClickHouse)
+| ClickHouse → Anti-Fraud Service
+| Sync / Async
+| Передача агрегированных поведенческих паттернов для выявления аномалий и мошенничества
+
+| IF-33
+| Аналитика (ClickHouse)
+| Search Service → Kafka → ClickHouse
+| Async
+| Логирование поисковых запросов и кликов пользователей для последующего анализа и улучшения ранжирования
+
+| IF-34
+| Аналитика (ClickHouse)
+| API Gateway → Kafka → ClickHouse
+| Async
+| Логирование пользовательских действий (clickstream) для построения полной картины поведения
+
+| IF-35
+| Аналитика (ClickHouse)
+| ClickHouse → Data Export / Backup
+| Async (batch)
+| Выгрузка агрегированных данных в хранилище или внешние системы для долгосрочного хранения и офлайн-аналитики
+
 |===
 
 ==== Схема взаимодействия

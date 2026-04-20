@@ -34,7 +34,7 @@
 - отправка сообщения: синхронный write (Client → API → Ticket Service)
 - получение сообщений: polling (Client → API → Ticket Service)
 - Kafka НЕ участвует в доставке сообщений пользователю
-- Kafka используется только для событий (analytics, notifications)
+- Kafka используется только для событий (analytics, notifications, состояния)
 
 ---
 
@@ -70,6 +70,8 @@
 
 | API Gateway | Redis | sync | RESP | Кэш
 
+| API Gateway | Analytics Service | sync | HTTP | Запрос аналитики (по ключевым меткам и пользователям)
+
 |===
 
 ---
@@ -80,7 +82,7 @@
 |===
 | A | B | Тип | Протокол | Описание
 
-| Order Service | Kafka | async | Kafka | order.events
+| Order Service | Kafka | async | Kafka | order.events (события для аналитики)
 
 | Payment Service | Kafka | async | Kafka | payment.events (из webhook)
 
@@ -90,17 +92,19 @@
 
 | Kafka | Delivery Service | async | Kafka | запуск доставки
 
-| Delivery Service | Kafka | async | Kafka | delivery.events
+| Delivery Service | Kafka | async | Kafka | delivery.events (события статусов доставки)
 
 | Kafka | Order Service | async | Kafka | обновления доставки заказа
 
 | Ticket Service | Kafka | async | Kafka | ticket.events (изменения и резерв)
 
-| Kafka | Search Service | async | Kafka | индексация
+| Kafka | Search Service | async | Kafka | индексация (события поиска и обновлений)
 
-| Ticket Service | Kafka | async | Kafka | message.events
+| Ticket Service | Kafka | async | Kafka | message.events (обновления сообщений)
 
-| Kafka | Analytics Service | async | Kafka | аналитика (и моделирование пользователей)
+| Kafka | Analytics Service | async | Kafka | аналитика (моделирование пользователей, поведенческие данные)
+
+| Kafka | ClickHouse | async | Kafka | Ведение событий в ClickHouse для агрегации
 
 |===
 
@@ -126,6 +130,8 @@
 - ticket.events
 - billing.events
 - analytics.events
+- user.events
+- search.events
 
 *DLQ:* *.dlq
 
@@ -139,6 +145,7 @@ order.events:
 - order.confirmed
 - order.cancelled
 - order.completed
+- order.shipped
 
 payment.events:
 
@@ -161,6 +168,7 @@ ticket.events:
 - ticket.updated
 - ticket.published
 - ticket.deleted
+- ticket.reserved
 
 message.events:
 
@@ -169,7 +177,16 @@ message.events:
 - message.delivered
 - message.read
 
-analytics: consumer-only
+analytics.events:
+
+- user.created
+- user.login
+- ticket.view
+- ticket.click
+- payment.initiated
+- payment.completed
+- delivery.started
+- delivery.updated
 
 ---
 
@@ -187,6 +204,10 @@ messaging:
 
 - key = conversation_id
 
+analytics:
+
+- key = event_type (user, ticket, order)
+
 ---
 
 ===== Consumer Groups
@@ -197,7 +218,7 @@ messaging:
 - ticket-service
 - analytics-service
 - search-service
-
+- clickhouse-service
 
 ---
 

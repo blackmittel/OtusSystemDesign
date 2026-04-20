@@ -110,6 +110,7 @@ image::StateMachine Moderation.png[]
 | body | TEXT | Текст сообщения
 | status | TEXT | Статус (Created, Sent, Read)
 | created_at | timestamp | время создания (зональное)
+| created_at | timestamp | время создания (зональное)
 | updated_at | timestamp | время изменения (зональное)
 |===
 ====== Состояния сообщений
