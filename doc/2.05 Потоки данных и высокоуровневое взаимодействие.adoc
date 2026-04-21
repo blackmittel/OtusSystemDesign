@@ -2,222 +2,54 @@
 
 ==== Информационные потоки
 
-[cols="1,2,3,1,3",options="header"]
+=== Потоки данных и высокоуровневое взаимодействие
+[NOTE]
+====
+Раздел описывает движение данных между компонентами системы.
+Указаны источник, приёмник, тип данных и способ передачи.
+====
+==== Потоки данных
+[cols="1,3,2,3",options="header"]
 |===
-| ID | Группа | Участники | Тип | Описание
-
-| IF-01
-| Инфраструктура
-| Client → GeoDNS → API Gateway
-| Sync
-| Геомаршрутизация запроса в ЦОД (Москва / Краснодар)
-
-| IF-02
-| Инфраструктура
-| Client → CDN
-| Sync
-| Получение медиаконтента из ближайшего узла CDN (СПб, Казань)
-
-| IF-03
-| Инфраструктура
-| API Gateway → Redis
-| Sync
-| Кэширование ответов; снятие нагрузки с бизнес-сервисов
-
-| IF-04
-| Безопасность
-| API Gateway → Auth Service
-| Sync
-| Проверка токена / валидация сессии на каждый входящий запрос
-
-| IF-05
-| Пользователи
-| Client → API Gateway → User Service
-| Sync
-| Управление профилем, wish-листом; чтение поведенческих данных
-
-| IF-06
-| Объявления
-| Client → API Gateway → Ticket Service
-| Sync
-| CRUD объявлений; модерация; резервирование товара при создании заказа
-
-| IF-07
-| Объявления
-| Client → API Gateway → Media Service
-| Sync
-| Загрузка медиафайлов (фото, видео товара) при создании / редактировании объявления
-
-| IF-08
-| Объявления
-| Media Service → CDN
-| Sync
-| Публикация загруженных медиафайлов в CDN для раздачи
-
-| IF-09
-| Поиск
-| Client → API Gateway → Search Service
-| Sync
-| Параметрический и текстовый поиск объявлений; персональные рекомендации
-
-| IF-10
-| Поиск
-| Kafka → Search Service
-| Async
-| Индексация новых и изменённых объявлений; поддержание актуальности поискового индекса
-
-| IF-11
-| Сообщения
-| Client → API Gateway → Ticket Service
-| Sync (polling)
-| Обмен сообщениями между покупателем и продавцом — до оформления заказа и в его контексте
-
-| IF-12
-| Заказ
-| Client → API Gateway → Order Service
-| Sync
-| Создание заказа покупателем
-
-| IF-13
-| Заказ
-| Order Service → Ticket Service
-| Sync
-| Валидация объявления и резервирование товара в момент оформления заказа
-
-| IF-14
-| Заказ
-| Order Service → Delivery Service
-| Sync
-| Расчёт стоимости и вариантов доставки при оформлении заказа
-
-| IF-15
-| Заказ
-| Delivery Service → Ext. Logistics API
-| Sync
-| Запрос тарифов и оформление отправления у логистического провайдера
-
-| IF-16
-| Платежи
-| Client → API Gateway → Payment Service
-| Sync
-| Инициация платежа покупателем
-
-| IF-17
-| Платежи
-| Order Service → Payment Service
-| Sync
-| Привязка созданного платежа к конкретному заказу
-
-| IF-18
-| Платежи
-| Ext. Payment API → Payment Service
-| Sync (webhook)
-| Подтверждение / отклонение платежа от внешнего платёжного шлюза
-
-| IF-19
-| Жизненный цикл заказа
-| Payment Service → Kafka → Order Service
-| Async
-| Событие подтверждения платежа; Order Service переводит заказ в статус «оплачен»
-
-| IF-20
-| Жизненный цикл заказа
-| Delivery Service → Kafka → Order Service
-| Async
-| Обновление статуса доставки (передан в логистику, в пути, доставлен)
-
-| IF-21
-| Расчёты и выплаты
-| Kafka → Billing Service
-| Async
-| Данные завершённой сделки для расчёта комиссии торговой площадки
-
-| IF-22
-| Расчёты и выплаты
-| Billing Service → Payment Service
-| Sync
-| Инициация выплаты продавцу после завершения сделки и удержания комиссии
-
-| IF-23
-| Аналитика и уведомления
-| Kafka → Analytics Service
-| Async
-| Агрегация событий заказов, платежей и пользовательского поведения
-
-| IF-24
-| Аналитика и уведомления
-| Analytics Service → Client (push / email / SMS)
-| Async
-| Отправка уведомлений пользователям (статус заказа, рекомендации, акции)
-
-| IF-25
-| Поведенческие данные
-| Kafka → User Service
-| Async
-| Обновление поведенческого профиля пользователя на основе его активности в системе
-
-| IF-26
-| Аналитика (ClickHouse)
-| Kafka → ClickHouse
-| Async
-| Инжест всех событий (user_events, ads_events, orders, payments, search) в ClickHouse через Kafka Engine и materialized views
-
-| IF-27
-| Аналитика (ClickHouse)
-| ClickHouse → Grafana
-| Sync
-| Построение BI-дашбордов (DAU, MAU, CTR, GMV, revenue) и визуализация метрик в реальном времени
-
-| IF-28
-| Аналитика (ClickHouse)
-| ClickHouse → Recommendation Service
-| Sync / Async
-| Предоставление агрегатов (популярность, тренды, co-view/co-click) для формирования рекомендаций
-
-| IF-29
-| Аналитика (ClickHouse)
-| ClickHouse → Search Service
-| Async
-| Обогащение поискового индекса сигналами ранжирования (популярность, конверсии, freshness)
-
-| IF-30
-| Аналитика (ClickHouse)
-| ClickHouse → Kafka
-| Async
-| Публикация агрегированных событий (триггеры: популярное объявление, аномалии, всплески активности)
-
-| IF-31
-| Аналитика (ClickHouse)
-| ClickHouse → Notification Service
-| Async
-| Генерация событий для пользовательских уведомлений (рост интереса к объявлению, рекомендации, изменения цен)
-
-| IF-32
-| Аналитика (ClickHouse)
-| ClickHouse → Anti-Fraud Service
-| Sync / Async
-| Передача агрегированных поведенческих паттернов для выявления аномалий и мошенничества
-
-| IF-33
-| Аналитика (ClickHouse)
-| Search Service → Kafka → ClickHouse
-| Async
-| Логирование поисковых запросов и кликов пользователей для последующего анализа и улучшения ранжирования
-
-| IF-34
-| Аналитика (ClickHouse)
-| API Gateway → Kafka → ClickHouse
-| Async
-| Логирование пользовательских действий (clickstream) для построения полной картины поведения
-
-| IF-35
-| Аналитика (ClickHouse)
-| ClickHouse → Data Export / Backup
-| Async (batch)
-| Выгрузка агрегированных данных в хранилище или внешние системы для долгосрочного хранения и офлайн-аналитики
-
+| ID | Источник -> Приёмник | Тип данных | Способ
+| IF-01 | Client -> GeoDNS -> API Gateway | HTTP request | Sync
+| IF-02 | Client -> CDN | Media | Sync
+| IF-03 | API Gateway -> Auth Service | JWT token, session_id | Sync
+| IF-04 | Auth Service -> PostgreSQL | Credentials (login, password hash) | Sync
+| IF-05 | Auth Service -> Redis | Session, token | Sync
+| IF-06 | API Gateway -> Redis | Session lookup | Sync
+| IF-07 | API Gateway -> User Service | Profile data | Sync
+| IF-08 | User Service -> PostgreSQL | User data | Sync
+| IF-09 | API Gateway -> Ticket Service | Ticket data | Sync
+| IF-10 | Ticket Service -> PostgreSQL | Ticket data | Sync
+| IF-11 | Ticket Service -> S3 | Media binary | Sync
+| IF-12 | S3 -> CDN | Media object | Async
+| IF-13 | Ticket Service -> Kafka | ticket.events | Async
+| IF-14 | Kafka -> Search Service | ticket.events | Async
+| IF-15 | Search Service -> ElasticSearch | Index data | Sync
+| IF-16 | API Gateway -> Search Service | Search query | Sync
+| IF-17 | API Gateway -> Order Service | Order data | Sync
+| IF-18 | Order Service -> PostgreSQL | Order data | Sync
+| IF-19 | Order Service -> Ticket Service | Reserve request | Sync
+| IF-20 | Order Service -> Payment Service | Payment request | Sync
+| IF-21 | Order Service -> Delivery Service | Delivery request | Sync
+| IF-22 | Payment Service -> PostgreSQL | Payment data | Sync
+| IF-23 | Payment Service -> External Payment API | Payment request | Sync
+| IF-24 | External Payment API -> Payment Service | Payment status webhook | Async
+| IF-25 | Payment Service -> Kafka | payment.events | Async
+| IF-26 | Kafka -> Order Service | payment.events | Async
+| IF-27 | Delivery Service -> PostgreSQL | Delivery data | Sync
+| IF-28 | Delivery Service -> External Logistics API | Shipment request | Sync
+| IF-29 | External Logistics API -> Delivery Service | Delivery status webhook | Async
+| IF-30 | Delivery Service -> Kafka | delivery.events | Async
+| IF-31 | Kafka -> Order Service | delivery.events | Async
+| IF-32 | Order Service -> Kafka | order.events | Async
+| IF-33 | Kafka -> Billing Service | order.events | Async
+| IF-34 | Billing Service -> PostgreSQL | Billing data | Sync
+| IF-35 | Billing Service -> Payment Service | Payout request | Sync
+| IF-36 | Ticket Service -> Kafka | message.events | Async
+| IF-37 | Kafka -> Analytics Service (ClickHouse) | ticket.events, order.events, payment.events, delivery.events, message.events | Async
 |===
-
 ==== Схема взаимодействия
 
 ifndef::imagesdir[:imagesdir: {docdir}/images]

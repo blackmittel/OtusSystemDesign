@@ -337,7 +337,7 @@ image::StateMachine Delivery.png[]
 | Уникальный идентификатор уведомления (PK)
 | user_id
 | UUID
-| Получатель уведомления (FK → User)
+| Получатель уведомления (FK -> User)
 | type
 | TEXT
 | Тип уведомления: order / payment / delivery / message / moderation / system

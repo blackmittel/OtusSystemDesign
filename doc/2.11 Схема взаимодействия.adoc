@@ -2,246 +2,119 @@
 
 ==== Принципы взаимодействия
 
-===== Синхронные
-- мгновенный ответ
-- строгая консистентность
-- короткие операции
-
-Протоколы:
-- HTTPS (REST)
-- gRPC
-
-===== Асинхронные
-- устойчивость к сбоям
-- fan-out
-- eventual consistency
-
-Протокол:
-- Kafka
-
-===== Внешние асинхронные взаимодействия (Webhook)
-
-Используются когда:
-- внешний провайдер инициирует событие
-- требуется near real-time уведомление
-- источник истины находится вне системы
-
-Протокол:
-- HTTPS (webhook)
-
-===== Messaging модель
-
-- отправка сообщения: синхронный write (Client → API → Ticket Service)
-- получение сообщений: polling (Client → API → Ticket Service)
-- Kafka НЕ участвует в доставке сообщений пользователю
-- Kafka используется только для событий (analytics, notifications, состояния)
-
----
-
-==== Синхронные взаимодействия
-
-[cols="1,1,2,2,3",options="header"]
+[cols="2,3,4",options="header"]
 |===
-| A | B | Тип | Протокол | Описание
-
-| Client | GeoDNS | sync | DNS | Геораспределение
-
-| GeoDNS | API Gateway | sync | HTTPS | Маршрутизация
-
-| Client | CDN | sync | HTTPS | Медиа
-
-| API Gateway | Auth Service | sync | gRPC | Авторизация (токен)
- 
-| API Gateway | Search Service | sync | HTTP | Поиск
-
-| API Gateway | Order Service | sync | HTTP | Заказы (создание, управление)
-
-| API Gateway | Ticket Service | sync | HTTP | Объявления + messaging
-
-| API Gateway | User Service | sync | HTTP | Пользователи
-
-| Order Service | Ticket Service | sync | HTTP | Проверка объявления (резервирование)
-
-| Order Service | Payment Service | sync | gRPC | Создание платежа (createPayment)
-
-| Order Service | Delivery Service | sync | gRPC | Расчёт доставки
-
-| Billing Service | Payment Service | sync | HTTP/gRPC | Выплаты
-
-| API Gateway | Redis | sync | RESP | Кэш
-
-| API Gateway | Analytics Service | sync | HTTP | Запрос аналитики (по ключевым меткам и пользователям)
-
+| Тип | Когда используется | Протокол
+| Синхронный | Мгновенный ответ, строгая консистентность | HTTPS (REST), gRPC
+| Асинхронный | Устойчивость к сбоям, fan-out, eventual consistency | Kafka
+| Webhook | Внешний провайдер инициирует событие | HTTPS
 |===
 
----
+==== Синхронные взаимодействия (прямые вызовы сервис->сервис)
 
-==== Асинхронные взаимодействия (Kafka)
-
-[cols="1,1,2,2,3",options="header"]
+[cols="1,2,2",options="header"]
 |===
-| A | B | Тип | Протокол | Описание
+| Компонент A | Компонент B | Протокол
+| Client | GeoDNS | DNS
+| GeoDNS | API Gateway | HTTPS
+| Client | CDN | HTTPS
+| API Gateway | Auth Service | gRPC
+| API Gateway | User Service | HTTP
+| API Gateway | Ticket Service | HTTP
+| API Gateway | Search Service | HTTP
+| API Gateway | Order Service | HTTP
+| API Gateway | Payment Service | HTTP
+| API Gateway | Redis | RESP
+| Order Service | Ticket Service | gRPC
+| Order Service | Payment Service | gRPC
+| Order Service | Delivery Service | gRPC
+| Billing Service | Payment Service | gRPC
+|===
 
-| Order Service | Kafka | async | Kafka | order.events (события для аналитики)
+==== Асинхронные взаимодействия (через Kafka)
 
-| Payment Service | Kafka | async | Kafka | payment.events (из webhook)
+===== Producers Kafka
 
-| Kafka | Order Service | async | Kafka | обновление статуса заказа
+[cols="1,2,3",options="header"]
+|===
+| Producer | Topic | События
+| Ticket Service | ticket.events | ticket.created, ticket.updated, ticket.published, ticket.deleted, ticket.reserved
+| Ticket Service | message.events | message.created, message.sent, message.delivered, message.read
+| Order Service | order.events | order.created, order.confirmed, order.cancelled, order.completed, order.shipped
+| Payment Service | payment.events | payment.created, payment.processing, payment.succeeded, payment.failed, payment.refunded
+| Delivery Service | delivery.events | delivery.created, delivery.in_transit, delivery.completed, delivery.failed
+|===
 
-| Kafka | Billing Service | async | Kafka | учёт средств
+===== Consumers Kafka
 
-| Kafka | Delivery Service | async | Kafka | запуск доставки
+[cols="1,2,3",options="header"]
+|===
+| Consumer | Topic | Действие
+| Search Service | ticket.events | Индексация объявлений в ElasticSearch
+| Order Service | payment.events | Обновление статуса заказа после оплаты
+| Order Service | delivery.events | Обновление статуса заказа по доставке
+| Billing Service | order.events | Расчёт комиссии и выплата продавцу после order.completed
+| Analytics Service (ClickHouse) | ticket.events | Сбор аналитики по объявлениям
+| Analytics Service (ClickHouse) | order.events | Сбор аналитики по заказам
+| Analytics Service (ClickHouse) | payment.events | Сбор аналитики по платежам
+| Analytics Service (ClickHouse) | delivery.events | Сбор аналитики по доставке
+| Analytics Service (ClickHouse) | message.events | Сбор аналитики по сообщениям
+|===
 
-| Delivery Service | Kafka | async | Kafka | delivery.events (события статусов доставки)
+===== Полная схема Kafka (Producer -> Topic -> Consumer)
 
-| Kafka | Order Service | async | Kafka | обновления доставки заказа
+[cols="1,2,1",options="header"]
+|===
+| Producer | Topic | Consumer
+| Ticket Service | ticket.events | Search Service
+| Ticket Service | ticket.events | Analytics Service (ClickHouse)
+| Ticket Service | message.events | Analytics Service (ClickHouse)
+| Order Service | order.events | Billing Service
+| Order Service | order.events | Analytics Service (ClickHouse)
+| Payment Service | payment.events | Order Service
+| Payment Service | payment.events | Analytics Service (ClickHouse)
+| Delivery Service | delivery.events | Order Service
+| Delivery Service | delivery.events | Analytics Service (ClickHouse)
+|===
 
-| Ticket Service | Kafka | async | Kafka | ticket.events (изменения и резерв)
+===== Topics и партиционирование
 
-| Kafka | Search Service | async | Kafka | индексация (события поиска и обновлений)
+[cols="1,2,2",options="header"]
+|===
+| Topic | Ключ партиционирования | Retention
+| ticket.events | ticket_id | 7 дней
+| message.events | conversation_id | 7 дней
+| order.events | order_id | 7 дней
+| payment.events | payment_id | 30 дней
+| delivery.events | delivery_id | 7 дней
+|===
 
-| Ticket Service | Kafka | async | Kafka | message.events (обновления сообщений)
+===== Consumer группы
 
-| Kafka | Analytics Service | async | Kafka | аналитика (моделирование пользователей, поведенческие данные)
-
-| Kafka | ClickHouse | async | Kafka | Ведение событий в ClickHouse для агрегации
-
+[cols="1,2",options="header"]
+|===
+| Consumer группа | Топики
+| search-service-group | ticket.events
+| order-service-group | payment.events, delivery.events
+| billing-service-group | order.events
+| analytics-service-group | ticket.events, order.events, payment.events, delivery.events, message.events
 |===
 
 ==== Внешние взаимодействия (Webhook)
 
-[cols="1,1,2,2,3",options="header"]
+[cols="1,2,2",options="header"]
 |===
-| Компонент A | Компонент B | Тип | Протокол | Описание
-
-| Платёжный агрегатор | Payment Service | async | HTTPS (webhook) | Уведомление о статусе платежа 
-
+| Компонент A | Компонент B | Протокол
+| Платёжный агрегатор | Payment Service | HTTPS (webhook)
+| Логистический API | Delivery Service | HTTPS (webhook)
 |===
 
----
-
-==== Организация Kafka
-
-===== Topics
-
-- order.events
-- payment.events
-- delivery.events
-- ticket.events
-- billing.events
-- analytics.events
-- user.events
-- search.events
-
-*DLQ:* *.dlq
-
----
-
-===== Events
-
-order.events:
-
-- order.created
-- order.confirmed
-- order.cancelled
-- order.completed
-- order.shipped
-
-payment.events:
-
-- payment.created
-- payment.processing
-- payment.succeeded
-- payment.failed
-- payment.refunded
-
-delivery.events:
-
-- delivery.created
-- delivery.in_transit
-- delivery.completed
-- delivery.failed
-
-ticket.events:
-
-- ticket.created
-- ticket.updated
-- ticket.published
-- ticket.deleted
-- ticket.reserved
-
-message.events:
-
-- message.created
-- message.sent
-- message.delivered
-- message.read
-
-analytics.events:
-
-- user.created
-- user.login
-- ticket.view
-- ticket.click
-- payment.initiated
-- payment.completed
-- delivery.started
-- delivery.updated
-
----
-
-===== Partitioning
-
-order/payment/delivery:
-
-- key = order_id
-
-ticket:
-
-- key = ticket_id
-
-messaging:
-
-- key = conversation_id
-
-analytics:
-
-- key = event_type (user, ticket, order)
-
----
-
-===== Consumer Groups
-
-- order-service
-- payment-service
-- delivery-service
-- ticket-service
-- analytics-service
-- search-service
-- clickhouse-service
-
----
-
-===== Диаграмма обмена
-
+==== Схемы процессов
 ifndef::imagesdir[:imagesdir: {docdir}/images]
 
-image::Sequence Full Process.png[]
-
+image::2-11 Sequence Operations.png[]
 ---
-
-===== Гарантии
-
-- at-least-once delivery
-- idempotent consumers
-- outbox pattern
-- DLQ + retry
-
+image::2-11 Sequence Order.png[]
 ---
-
-===== Rules
-
-- topic per domain
-- events внутри topic
-- единый ключ для согласованных доменов
-- отсутствие sync-зависимостей между доменами
+image::2-11 Sequence Events.png[]
+---

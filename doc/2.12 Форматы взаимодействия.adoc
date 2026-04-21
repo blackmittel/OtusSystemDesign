@@ -1,145 +1,444 @@
 === Форматы взаимодействия
 
+[NOTE]
+====
+Раздел описывает структуру и формат данных при взаимодействии компонентов.
+Все форматы соответствуют схемам данных, описанным в разделе «Схемы данных».
+Для всех операций, не имеющих явного примера, используются те же принципы
+и соответствующие схемы из раздела «Схемы данных».
+====
+
 ==== DNS / GeoDNS
 
-
-[cols="15,30,30", options="header"]
+[cols="1,2",options="header"]
 |===
-| Компонент A | Компонент B | Описание
+| Формат | Описание
 
-| Client
-| GeoDNS
-| Геораспределение трафика между ЦОД (Москва/Краснодар)
+| A-запись (Address Record) | Преобразует доменное имя в IPv4-адрес. Используется для геораспределения трафика между ЦОД (Москва/Краснодар). GeoDNS возвращает IP-адрес ближайшего ЦОД на основе местоположения клиента.
+
+| SRV-запись (Service Record) | Определяет хост и порт для конкретного сервиса. Используется для определения активного API Gateway в каждом ЦОД. Включает приоритет и вес для failover.
+
 |===
 
 ==== HTTP/REST (JSON)
-Основной формат синхронного взаимодействия.
 
-[cols="15,30,30", options="header"]
-|===
-| Компонент A | Компонент B | Описание
+Формат для внешних API (Client -> API Gateway).
 
-| Client
-| API Gateway
-| Вызовы бизнес-сервисов (пользователи, объявления, поиск, заказы, платежи)
+===== Общие принципы
 
-| API Gateway
-| Сервис пользователей
-| Управление профилем и списками
+- Кодировка: UTF-8
+- Content-Type: application/json
+- Версионирование: через URL path (`/v1/`, `/v2/`)
+- Пагинация: cursor-based (after_id, limit) — клиент передаёт `limit` и идентификатор последнего полученного элемента
+- Ошибки: формат RFC 9457 (Problem Details for HTTP APIs)
 
-| API Gateway
-| Сервис объявлений
-| Создание/редактирование объявлений, сообщения
+===== Форматы запросов и ответов
 
-| API Gateway
-| Сервис поиска
-| Поиск и рекомендации
+Все форматы запросов и ответов соответствуют схемам из раздела «Схемы данных»:
 
-| API Gateway
-| Сервис заказов
-| Создание/обновление заказа
+- `User`, `SellerProfile` — для операций с пользователями
+- `Ticket`, `Category` — для операций с объявлениями
+- `Order`, `Reservation` — для операций с заказами
+- `Message`, `Conversation` — для операций с сообщениями
+- `Payment`, `Payout`, `Refund`, `Transaction` — для платёжных операций
+- `Shipment`, `DeliveryService` — для операций доставки
+- `Review`, `Notification` — для отзывов и уведомлений
 
-| API Gateway
-| Платёжный сервис
-| Инициация платежа
+Поля запросов и ответов соответствуют полям этих схем (см. раздел «Схемы данных»).
 
-| Сервис расчётов
-| Платёжный сервис
-| Выплаты продавцам
-|===
+===== Пример: создание объявления (POST /v1/tickets)
 
-==== HTTP - медиа передача
-Основной формат HTTPS для статики.
+Запрос (соответствует схемам `Ticket`, `Category`):
 
-[cols="15,30,30", options="header"]
-|===
-| Компонент A | Компонент B | Описание
+[source,json]
+----
+{
+    "title": "string",                   // Ticket.title
+    "description": "string",             // Ticket.description
+    "category_id": "uuid",               // Ticket.category_id
+    "price": 0,                          // Ticket.price
+    "total_quantity": 0,                 // Ticket.total_quantity
+    "images": ["string"]                 // массив URL изображений
+}
+----
 
-| Client
-| CDN (СПб, Казань)
-| Доставка медиа-контента, кеширование статических ресурсов
-|===
+Ответ (201 Created):
+
+[source,json]
+----
+{
+    "ticket_id": "uuid",                 // Ticket.ticket_id
+    "status": "string",                  // Ticket.status
+    "created_at": "datetime"             // Ticket.created_at
+}
+----
+
+===== Пример: создание заказа (POST /v1/orders)
+
+Запрос (соответствует схемам `Order`, `Reservation`):
+
+[source,json]
+----
+{
+    "ticket_id": "uuid",                 // Order.ticket_id
+    "quantity": 0,                       // Order.quantity
+    "delivery_address": {                // адрес доставки
+        "city": "string",
+        "street": "string",
+        "house": "string"
+    }
+}
+----
+
+Ответ (201 Created):
+
+[source,json]
+----
+{
+    "order_id": "uuid",                  // Order.order_id
+    "status": "string",                  // Order.status
+    "total_price": 0,                    // Order.total_price
+    "payment_url": "string",             // URL для оплаты
+    "created_at": "datetime"             // Order.created_at
+}
+----
+
+===== Пример ответа с ошибкой (4xx/5xx)
+
+Формат RFC 9457:
+
+[source,json]
+----
+{
+    "type": "string",                    // URI типа ошибки
+    "title": "string",                   // краткое описание
+    "status": 0,                         // HTTP статус
+    "detail": "string",                  // детальное описание
+    "instance": "string"                 // URI запроса
+}
+----
+
+===== Остальные операции
+
+Для остальных операций (просмотр профиля, редактирование объявления, поиск, сообщения, получение статуса заказа и т.д.) используются:
+
+- Те же принципы кодирования и версионирования
+- Соответствующие схемы из раздела «Схемы данных»
+- Поля, указанные в схемах (например, `GET /v1/users/{user_id}` возвращает `User`, `GET /v1/tickets/{ticket_id}` возвращает `Ticket` и т.д.)
 
 ==== gRPC (Protobuf)
-Формат внутренних синхронных внутри ЦОД.
 
-[cols="15,30,30", options="header"]
+Формат для внутренних синхронных вызовов между сервисами внутри ЦОД.
+
+Все gRPC-сообщения соответствуют схемам данных:
+
+- `User`, `UserRole`, `Role` — для Auth Service
+- `Order`, `Payment` — для Payment Service
+- `Order`, `Shipment`, `DeliveryService` — для Delivery Service
+- `Payout`, `Transaction` — для Billing Service
+
+===== Auth Service (auth.proto)
+
+[source,protobuf]
+----
+syntax = "proto3";
+
+service AuthService {
+    rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse);
+    rpc Authenticate (AuthenticateRequest) returns (AuthenticateResponse);
+}
+
+message ValidateTokenRequest {
+    string token = 1;                    // JWT или session token
+}
+
+message ValidateTokenResponse {
+    bool valid = 1;                      // признак валидности токена
+    string user_id = 2;                  // User.user_id
+    repeated string roles = 3;           // роли из UserRole + Role
+    int64 expires_at = 4;                // timestamp истечения
+}
+
+message AuthenticateRequest {
+    string login = 1;                    // email или телефон (User.email/phone)
+    string password = 2;                 // пароль (User.password_hash)
+}
+
+message AuthenticateResponse {
+    string session_id = 1;               // идентификатор сессии
+    string jwt_token = 2;                // JWT токен
+    int64 expires_in = 3;                // время жизни в секундах
+}
+----
+
+===== Payment Service (payment.proto)
+
+[source,protobuf]
+----
+syntax = "proto3";
+
+service PaymentService {
+    rpc CreatePayment (CreatePaymentRequest) returns (CreatePaymentResponse);
+    rpc Payout (PayoutRequest) returns (PayoutResponse);
+}
+
+message CreatePaymentRequest {
+    string order_id = 1;                 // Order.order_id
+    int64 amount = 2;                    // сумма в копейках (Order.total_price)
+    string currency = 3;                 // валюта (RUB)
+    string return_url = 4;               // URL возврата после оплаты
+    string webhook_url = 5;              // URL для уведомлений
+}
+
+message CreatePaymentResponse {
+    string payment_id = 1;               // Payment.payment_id
+    string payment_url = 2;              // URL для редиректа на оплату
+    string status = 3;                   // Payment.status
+}
+
+message PayoutRequest {
+    string seller_id = 1;                // SellerProfile.seller_id
+    int64 amount = 2;                    // сумма выплаты
+    string currency = 3;                 // валюта
+    string payout_id = 4;                // Payout.payout_id
+}
+
+message PayoutResponse {
+    string payout_id = 1;                // Payout.payout_id
+    string status = 2;                   // Payout.status
+    string transaction_id = 3;           // Transaction.transaction_id
+}
+----
+
+===== Delivery Service (delivery.proto)
+
+[source,protobuf]
+----
+syntax = "proto3";
+
+service DeliveryService {
+    rpc CalculateDelivery (DeliveryRequest) returns (DeliveryResponse);
+    rpc CreateShipment (ShipmentRequest) returns (ShipmentResponse);
+}
+
+message DeliveryRequest {
+    string order_id = 1;                 // Order.order_id
+    string address = 2;                  // адрес доставки
+    int32 quantity = 3;                  // количество товаров (Order.quantity)
+}
+
+message DeliveryResponse {
+    repeated DeliveryOption options = 1; // варианты доставки
+}
+
+message DeliveryOption {
+    string delivery_service_id = 1;      // DeliveryService.delivery_service_id
+    string name = 2;                     // DeliveryService.name
+    int64 price = 3;                     // стоимость доставки
+    int32 days = 4;                      // срок в днях
+}
+
+message ShipmentRequest {
+    string order_id = 1;                 // Order.order_id
+    string delivery_service_id = 2;      // DeliveryService.delivery_service_id
+    string address = 3;                  // адрес доставки
+}
+
+message ShipmentResponse {
+    string shipment_id = 1;              // Shipment.shipment_id
+    string tracking_number = 2;          // Shipment.tracking_number
+    string status = 3;                   // Shipment.status
+}
+----
+
+==== HTTP Webhook (JSON)
+
+Формат для внешних асинхронных колбэков.
+
+Все webhook-сообщения соответствуют схемам `Payment`, `Transaction`, `Shipment`.
+
+===== Webhook платежей
+
+[source,json]
+----
+POST /webhook/payment
+{
+    "payment_id": "uuid",                // Payment.payment_id
+    "order_id": "uuid",                  // Order.order_id
+    "status": "string",                  // Payment.status (Succeeded, Failed)
+    "provider": "string",                // Payment.provider
+    "provider_txn_id": "string",         // Transaction.external_reference
+    "amount": 0,                         // Payment.amount
+    "currency": "string",                // валюта
+    "timestamp": "datetime",             // время события
+    "signature": "string"                // подпись для верификации
+}
+----
+
+===== Webhook доставки
+
+[source,json]
+----
+POST /webhook/delivery
+{
+    "shipment_id": "uuid",               // Shipment.shipment_id
+    "order_id": "uuid",                  // Order.order_id
+    "status": "string",                  // Shipment.status
+    "tracking_number": "string",         // Shipment.tracking_number
+    "carrier": "string",                 // DeliveryService.name
+    "timestamp": "datetime"              // время события
+}
+----
+
+==== Kafka / Event bus
+
+Формат для асинхронных событий.
+
+Все события соответствуют схемам `Ticket`, `Order`, `Payment`, `Shipment`, `Message`.
+
+===== Схема события ticket.events
+
+[source,json]
+----
+{
+    "event_id": "uuid",                  // уникальный идентификатор события
+    "event_type": "string",              // created, updated, published, deleted, reserved
+    "ticket_id": "uuid",                 // Ticket.ticket_id
+    "seller_id": "uuid",                 // Ticket.seller_id
+    "data": "json",                      // изменённые поля Ticket
+    "timestamp": "datetime"              // время события
+}
+----
+
+===== Схема события order.events
+
+[source,json]
+----
+{
+    "event_id": "uuid",                  // уникальный идентификатор события
+    "event_type": "string",              // created, confirmed, cancelled, completed, shipped
+    "order_id": "uuid",                  // Order.order_id
+    "buyer_id": "uuid",                  // Order.buyer_id
+    "seller_id": "uuid",                 // Order.seller_id
+    "total_price": 0,                    // Order.total_price
+    "status": "string",                  // Order.status
+    "timestamp": "datetime"              // время события
+}
+----
+
+===== Схема события payment.events
+
+[source,json]
+----
+{
+    "event_id": "uuid",                  // уникальный идентификатор события
+    "event_type": "string",              // created, processing, succeeded, failed, refunded
+    "payment_id": "uuid",                // Payment.payment_id
+    "order_id": "uuid",                  // Order.order_id
+    "amount": 0,                         // Payment.amount
+    "status": "string",                  // Payment.status
+    "timestamp": "datetime"              // время события
+}
+----
+
+===== Схема события delivery.events
+
+[source,json]
+----
+{
+    "event_id": "uuid",                  // уникальный идентификатор события
+    "event_type": "string",              // created, in_transit, completed, failed
+    "shipment_id": "uuid",               // Shipment.shipment_id
+    "order_id": "uuid",                  // Order.order_id
+    "status": "string",                  // Shipment.status
+    "tracking_number": "string",         // Shipment.tracking_number
+    "timestamp": "datetime"              // время события
+}
+----
+
+===== Схема события message.events
+
+[source,json]
+----
+{
+    "event_id": "uuid",                  // уникальный идентификатор события
+    "event_type": "string",              // created, sent, delivered, read
+    "message_id": "uuid",                // Message.message_id
+    "conversation_id": "uuid",           // Message.conversation_id
+    "sender_id": "uuid",                 // Message.sender_id
+    "body": "string",                    // Message.body (обрезанный для аналитики)
+    "status": "string",                  // Message.status
+    "timestamp": "datetime"              // время события
+}
+----
+
+===== Ключи партиционирования Kafka
+
+[cols="1,2",options="header"]
 |===
-| Компонент A | Компонент B | Описание
+| Topic | Ключ
 
-| API Gateway
-| Сервис авторизации
-| Проверка токена / аутентификация пользователя
+| ticket.events | ticket_id
 
-| Сервис заказов
-| Платёжный сервис
-| Создание платежа в рамках заказа
+| order.events | order_id
 
-| Сервис заказов
-| Сервис доставки
-| Расчёт стоимости и параметров доставки
+| payment.events | payment_id
 
-| Сервис расчётов
-| Платёжный сервис
-| Выплаты и учёт финансов
+| delivery.events | shipment_id
+
+| message.events | conversation_id
+
 |===
 
-==== Redis / Cache
-Взаимодействие с кэшом
+==== Redis / Cache (RESP)
 
-[cols="15,30,30", options="header"]
+Формат для кэширования.
+
+[cols="2,2,3",options="header"]
 |===
-| Компонент A | Компонент B | Описание
+| Шаблон ключа | TTL | Значение (JSON)
 
-| API Gateway
-| Кэш (Redis)
-| Кэширование сессий, результатов поиска, часто запрашиваемых данных
-|===
+| `session:{session_id}` | 24h | `{"user_id": "uuid", "roles": ["string"], "expires_at": "datetime"}`
 
-==== Kafka / Event bus (асинхронные события)
+| `token:{jwt}` | 1h | `{"user_id": "uuid", "blocked": false}`
 
-[cols="15,30,30", options="header"]
-|===
-| Компонент A | Компонент B | Описание
+| `search:{query_hash}` | 5m | `{"ticket_ids": ["uuid"], "total": 0}`
 
-| Платёжный сервис
-| Kafka
-| Публикация результата платежа
+| `ticket:{ticket_id}` | 10m | полный объект Ticket (см. схему)
 
-| Kafka
-| Сервис расчётов
-| Учёт средств, обработка баланса
+| `user:{user_id}` | 10m | полный объект User (см. схему)
 
-| Kafka
-| Сервис заказов
-| Обновление статуса заказа
-
-| Сервис заказов
-| Kafka
-| Новый заказ
-
-| Kafka
-| Сервис доставки
-| Создание доставки
-
-| Сервис доставки
-| Kafka
-| Статус доставки
-
-| Сервис объявлений
-| Kafka
-| Изменения объявлений, сообщения пользователей
-
-| Kafka
-| Сервис поиска
-| Индексация, обучение рекомендаций
-
-| Сервис поиска
-| Kafka
-| Поведение пользователя
-
-| Kafka
-| Аналитический сервис
-| Аналитика, уведомления
 |===
 
+==== S3 / CDN
+
+Формат для медиафайлов.
+
+===== Схема URL
+
+[source]
+----
+https://cdn.{city}.example.com/media/{ticket_id}/{file_id}/{version}.{ext}
+----
+
+где:
+- `{city}` — spb или kzn (ближайший CDN узел)
+- `{ticket_id}` — Ticket.ticket_id
+- `{file_id}` — уникальный идентификатор файла
+- `{version}` — версия файла (для инвалидации кэша)
+- `{ext}` — расширение файла
+
+===== Метаданные (S3)
+
+[source,json]
+----
+{
+    "ticket_id": "uuid",                 // Ticket.ticket_id
+    "user_id": "uuid",                   // Ticket.seller_id
+    "content_type": "string",            // MIME тип
+    "size_bytes": 0,                     // размер в байтах
+    "width": 0,                          // ширина изображения
+    "height": 0,                         // высота изображения
+    "created_at": "datetime"             // время загрузки
+}
+----

@@ -1,5 +1,6 @@
 /.idea/***
 /Архитектерное решение.pdf
+/architecture-desicio.pdf
 /billets
 /dir.txt
 /paragraphs.xlsx
@@ -7,3 +8,4 @@
 *.ods
 /.gigaide
 /.~*
+/СОСТАВ СИСТЕМЫ.adoc

@@ -1,0 +1,26 @@
+2-11 Sequence Events.png
+2-11 Sequence Operations.png
+2-11 Sequence Order.png
+CI CD.png
+data accordance.png
+datamodel_detailed.png
+Data Scheme Pack.png
+Data Scheme.png
+Deploy.png
+DEPLOY.png
+hla.png
+Interaction scheme.png
+lla.png
+Request Security.png
+Security audit BW.png
+Sequence Full Process.png
+StateMachine Billing.png
+StateMachine Delivery.png
+StateMachine Message.png
+StateMachine Moderation.png
+StateMachine Order.png
+StateMachine Payment.png
+StateMachine Refund.png
+StateMachine Reservation.png
+StateMachine Ticket.png
+StateMachine Transaction.png
