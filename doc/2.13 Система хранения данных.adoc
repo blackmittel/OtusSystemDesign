@@ -2,7 +2,9 @@
 
 ==== Общая архитектура
 
-Система хранения данных разделена по бизнес-доменам и типам нагрузки. Используется комбинация реляционных и нереляционных хранилищ, кэширования и асинхронной обработки для масштабируемости и отказоустойчивости.
+Система хранения данных разделена по бизнес-доменам и типам нагрузки. Используется комбинация реляционных и нереляционных хранилищ, кэширования и аналитического хранилища для масштабируемости и разделения OLTP/OLAP нагрузки.
+
+==== Хранилища по сервисам
 
 [cols="1,1,1,2,3",options="header"]
 |===
@@ -12,174 +14,172 @@
 | PostgreSQL + Redis
 | Москва / Краснодар
 | PostgreSQL: master-replica; Redis: master-replica в каждом ЦОД
-| Credentials (PostgreSQL), сессии и токены (Redis, TTL), высокая доступность
+| credentials (PostgreSQL), sessions + tokens (Redis, TTL)
 
 | Сервис пользователей
 | PostgreSQL
 | Москва / Краснодар
-| Geo-sharding по user_id; Master-Master; read-replicas
-| ACID-транзакции, профили, пользовательские данные
+| Geo-sharding по user_id
+| профильные данные пользователей
 
-| Сервис объявлений (Tickets)
-| PostgreSQL + CQRS (write: PostgreSQL, read: ElasticSearch)
-| Москва / Краснодар + ES cluster
-| Geo-sharding по ticket_id; ES shards + replicas
-| Write через PostgreSQL, read через ES; масштабируемый поиск
-
-| Сервис поиска / рекомендации
-| ElasticSearch + Redis
+| Сервис объявлений
+| PostgreSQL
 | Москва / Краснодар
-| ES: shard + replica; Redis: локальные кластеры
-| Поиск, фильтрация, рекомендации, низкая латентность
+| Geo-sharding по ticket_id
+| объявления + модерация + сообщения
+
+| Сервис поиска / рекомендаций
+| Elasticsearch
+| Москва / Краснодар
+| shards + replicas
+| полнотекстовый поиск и ранжирование
 
 | Сервис заказов
 | PostgreSQL
 | Москва / Краснодар
-| Geo-sharding по order_id; Master-Master; read-replicas
-| ACID-транзакции, статусы заказов
+| Geo-sharding по order_id
+| транзакционные данные заказов
 
 | Платёжный сервис
-| PostgreSQL / внешние API
-| Москва (primary), Краснодар (replica)
-| Single-writer (Primary + replicas)
-| Финансовые операции, строгая консистентность
+| PostgreSQL
+| Москва / Краснодар
+| master + replicas
+| финансовые операции
 
 | Сервис расчётов
 | PostgreSQL
-| Москва (primary)
-| Single-writer + replica
-| Балансы и выплаты, финансовый контур
+| Москва
+| single-writer + replica
+| балансы и выплаты
 
 | Сервис доставки
 | PostgreSQL
 | Москва / Краснодар
-| Geo-sharding по order_id; Master-Master
-| Логистика, статусы доставки
+| geo-sharding по order_id
+| логистика и статусы доставки
 
 | Сервис медиа
-| S3 / объектное хранилище + CDN
-| Москва / Краснодар (origin) + СПб / Казань (CDN)
-| Репликация объектов + edge-кэш
-| Хранение изображений и видео
+| S3 + CDN
+| Москва / Краснодар + СПб / Казань (edge)
+| репликация объектов + edge caching
+| хранение и раздача медиа
 
 | Кэш
-| Redis Cluster
+| Redis
 | Москва / Краснодар
-| Кластер (master + replica), partitioning
-| Кэш данных, сессии, токены, рекомендации
+| cluster (partitioning + replicas)
+| сессии, токены, кэш данных
+
+| Аналитический сервис
+| ClickHouse
+| Москва / Краснодар
+| distributed + replicated tables
+| агрегации событий, BI, метрики, рекомендации, нотификации
 
 | Асинхронные события
 | Kafka
 | Москва / Краснодар
-| Partitioning + cross-DC replication
-| Event bus системы
+| partitioning + replication
+| event bus системы
 
 | Мониторинг / логирование
 | ELK
 | Москва / Краснодар
-| Отдельные кластеры по ЦОД
-| Централизованный сбор логов
+| отдельные кластеры по ЦОД
+| централизованный сбор логов
 |===
 
 ==== Репликация и шардирование
 
-* **PostgreSQL**
+* PostgreSQL
+  - geo-sharding по user_id / ticket_id / order_id
+  - master-replica или single-writer по домену
+  - read-replicas для масштабирования
 
-* Geo-sharding по user_id / ticket_id / order_id.
-* Master-Master для Users, Tickets, Orders, Delivery.
-* Single-writer (Primary + replicas) для Payments и Billing.
-* Read-replicas для масштабирования чтения.
-* Logical replication для интеграции с Kafka / аналитикой.
+* Elasticsearch
+  - shard + replica модель
+  - синхронизация через Kafka
 
-* **ElasticSearch**
+* Redis
+  - cluster mode
+  - TTL для сессий и токенов
 
-* Индексы разделены на shards и replicas.
-* Кластеры в каждом ЦОД.
-* Синхронизация через Kafka.
-* Поддержка full-text поиска и фильтрации.
+* S3 / CDN
+  - репликация между регионами
+  - edge-кэширование (СПб, Казань)
 
-* **Redis**
+* Kafka
+  - partitioning по entity_id
+  - replication между ЦОД
 
-* Кластеры в каждом ЦОД.
-* Master + replicas.
-* TTL для токенов и кэша.
-* Партиции (hash slots).
-
-* **S3 / объектное хранилище**
-
-* Репликация между регионами.
-* CDN (СПб, Казань) для edge-кеширования.
-* Асинхронная обработка медиа через очереди.
-
-* **Kafka**
-
-* Топики по доменам (orders, payments, tickets, users).
-* Партиции по ключу (entity_id).
-* Репликация между ЦОД.
-* Использование compacted topics для состояний.
+* ClickHouse (аналитика)
+  - ReplicatedMergeTree
+  - Distributed tables между Москвой и Краснодаром
+  - ingestion через Kafka Engine
+  - materialized views для агрегаций
 
 ==== CQRS и Event-driven
 
-*Сервис Tickets:*
+* Сервис объявлений:
+  - write: PostgreSQL
+  - read: Elasticsearch
+  - события публикуются в Kafka
 
-* Write модель: PostgreSQL.
-* Read модель: ElasticSearch.
-* Изменения публикуются в Kafka.
+* Event-driven слой:
+  - все сервисы публикуют события в Kafka
+  - ClickHouse потребляет события для аналитики
+  - аналитический сервис формирует агрегаты и метрики
 
-*Event-driven архитектура:*
-
-* Все сервисы публикуют события в Kafka.
-* Подписчики обрабатывают события асинхронно.
-* Используется для индексации, аналитики, рекомендаций
-
-==== Итоговая структура
+==== Итоговая модель хранения данных
 
 [cols="1,1,1,2",options="header"]
 |===
 | Тип данных | Хранилище | Геораспределение | Назначение
 
-| Аутентификация (credentials, токены)
+| Пользователи / аутентификация
 | PostgreSQL + Redis
 | Москва / Краснодар
-| Хранение пользователей (credentials) и runtime-сессий
+| профили, сессии, токены
 
-| Пользователи
-| PostgreSQL + Redis
+| Объявления
+| PostgreSQL
 | Москва / Краснодар
-| Профили, пользовательские данные, кэш
+| объявления, модерация, сообщения
 
-| Объявления (Tickets)
-| PostgreSQL (write) + ElasticSearch (read)
+| Поиск / рекомендации
+| Elasticsearch
 | Москва / Краснодар
-| CRUD в PostgreSQL, поиск в ElasticSearch
+| поиск и ранжирование
 
-| Заказы, платежи, расчёты
-| PostgreSQL + Kafka
+| Заказы / платежи / расчёты
+| PostgreSQL
 | Москва / Краснодар
-| Транзакции + события
+| транзакции и финансы
 
 | Доставка
-| PostgreSQL + Kafka
+| PostgreSQL
 | Москва / Краснодар
-| Логистика, статусы
+| логистика и статусы
 
 | Медиа
 | S3 + CDN
 | Москва / Краснодар + edge
-| Хранение и доставка контента
+| хранение и раздача контента
 
-| Кэш и сессии
+| Кэш
 | Redis
 | Москва / Краснодар
-| Токены, кэш, рекомендации
+| временные данные и сессии
 
-| События и интеграция
-| Kafka
+| Аналитика
+| ClickHouse
 | Москва / Краснодар
-| Асинхронное взаимодействие
-
-| Логи и аналитика
-| ELK + Kafka
-| Москва / Краснодар
-| Логи, мониторинг, корреляция
+| события, агрегации, BI
 |===
+
+etcd-кластер из трёх узлов:
+- Москва: leader
+- Краснодар: follower
+- Казань: witness (участвует в кворуме, не хранит данные)
+
+При отказе Москвы кворум (Краснодар + Казань) выбирает новый мастер для платежей и расчётов.
